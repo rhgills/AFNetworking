@@ -28,6 +28,10 @@
 @end
 
 
+
+NSString * const RHGRateLimiterDidLiftRateLimitNotification = @"RHGRateLimiterDidLiftRateLimitNotification";
+
+
 @interface RHGRateLimiter ()
 
 - (void)operationDidStart;
@@ -36,41 +40,47 @@
 - (void)connectionWillStartFromNotification:(NSNotification *)aNotification;
 - (void)operationDidFinishFromNotification:(NSNotification *)aNotification;
 
-@property (nonatomic, strong) id <RHGCurrentDateWrapper> currentDateWrapper;
+@property (nonatomic, strong, readonly) id <RHGCurrentDateWrapper> currentDateWrapper;
+@property (nonatomic, strong, readonly) RHGPerformDelayedSelectorWrapper *performDelayedSelectorWrapper;
+
 @property NSUInteger runningOperations;
-
 @property NSMutableSet *lastFourRequests;
-
 @property (readonly) NSRecursiveLock *qpsLock;
 
 @end
 
 
+
+
+
+
 @implementation RHGRateLimiter
 
 @synthesize currentDateWrapper = _currentDateWrapper;
+@synthesize performDelayedSelectorWrapper = _performDelayedSelectorWrapper;
+
 @synthesize lastFourRequests = _lastFourRequests;
 
-
-- (id)initWithCurrentDateWrapper:(id<RHGCurrentDateWrapper>)currentDateWrapper
+- (id)initWithCurrentDateWrapper:(id <RHGCurrentDateWrapper>)aCurrentDateWrapper performDelayedSelectorWrapper:(RHGPerformDelayedSelectorWrapper*)aPerformDelayedSelectorWrapper
 {
     self = [super init];
     if (self) {
+        NSParameterAssert(aCurrentDateWrapper);
+        _currentDateWrapper = aCurrentDateWrapper;
+        
+        NSParameterAssert(aPerformDelayedSelectorWrapper);
+        _performDelayedSelectorWrapper = aPerformDelayedSelectorWrapper;
+        
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(connectionWillStartFromNotification:) name:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(operationDidFinishFromNotification:) name:AFNetworkingOperationDidFinishNotification object:nil];
         
         _runningOperations = 0;
         _lastFourRequests = [[NSMutableSet alloc] initWithCapacity:[self rateLimit]];
         
-        NSParameterAssert(currentDateWrapper);
-        _currentDateWrapper = currentDateWrapper;
-        
         _qpsLock = [[NSRecursiveLock alloc] init];
     }
     return self;
 }
-
-
 
 - (void)dealloc
 {
@@ -171,7 +181,7 @@
     
     if ([self atRateLimit]) {
         // this will change in 1 second.
-        [self performSelector:@selector(markQPSLimitChanged) withObject:nil afterDelay:1.0];
+        [self.performDelayedSelectorWrapper performSelector:@selector(markQPSLimitChanged) withObject:nil afterDelay:1.0 onTarget:self];
     }
     
     [self unlock];
@@ -179,9 +189,8 @@
 
 - (void)markQPSLimitChanged
 {
-    [self willChangeValueForKey:PROPERTY(atRateLimit)]; // this will make the before value wrong! but it can't be relied on anyway
-                                                       // calling it one second before means no KVO notification is posted. clearly, not intended.
-    [self didChangeValueForKey:PROPERTY(atRateLimit)];
+    NSParameterAssert( ![self atRateLimit] );
+    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimiterDidLiftRateLimitNotification object:self];
 }
 
 - (RHGRateLimiterRequestInfo *)infoForOperation:(id)operation

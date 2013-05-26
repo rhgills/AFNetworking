@@ -17,6 +17,8 @@
 #define HC_SHORTHAND
 #import "OCHamcrest.h"
 
+#import "RHGPerformDelayedSelectorWrapper.h"
+
 @interface RHGRateLimiterTestCase : SenTestCase
 
 @end
@@ -29,6 +31,7 @@
     
     RHGRateLimiter *limiter;
     id <RHGCurrentDateWrapper> currentDateWrapper;
+    id performDelayedSelectorWrapper;
     
     BOOL _notificationReceived;
 }
@@ -40,8 +43,9 @@
     _notificationReceived = NO;
     
     currentDateWrapper = [context protocolMock:@protocol(RHGCurrentDateWrapper)];
+    performDelayedSelectorWrapper = [context mock:[RHGPerformDelayedSelectorWrapper class]];
     
-    limiter = [[RHGRateLimiter alloc] initWithCurrentDateWrapper:currentDateWrapper];
+    limiter = [[RHGRateLimiter alloc] initWithCurrentDateWrapper:currentDateWrapper performDelayedSelectorWrapper:performDelayedSelectorWrapper];
     
     [context checking:^(LRExpectationBuilder *builder) {
         [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeIntervalSince1970:0.0]);
@@ -267,6 +271,42 @@
 
     // then
     assertThatBool([limiter atRateLimit], equalToBool(YES));
+    assertContextSatisfied(context);
+}
+
+- (void)testThatNotificationPostedWhenRateLimitLifted
+{
+    NSDate *startAndFinishDate = [NSDate dateWithTimeIntervalSince1970:0.0];
+    
+    SEL selector = @selector(markQPSLimitChanged); // tightly coupled to the implementation because we can't pass an anything() hamcrest matcher as the selector argument and have it work.
+    __block id object;
+    [context checking:^(LRExpectationBuilder *builder) {
+        [allowing(currentDateWrapper) currentDate]; andReturn(startAndFinishDate);
+    
+        [oneOf(performDelayedSelectorWrapper) performSelector:selector withObject:(id)anything() afterDelay:1 onTarget:limiter]; andThen(LRA_performBlock(^(NSInvocation *invocation) {
+//            [invocation getArgument:&selector atIndex:2];
+            [invocation getArgument:&object atIndex:3];
+        }));
+    }];
+    NSArray *started = [self postStartNotificationNTimes:4];
+    
+    //
+    // when
+    //
+    
+    // the selector was scheduled
+    [self postFinishNotificationForOperation:[started lastObject]];
+    assertContextSatisfied(context);
+    
+    // the selector works
+    [context expectNotificationNamed:RHGRateLimiterDidLiftRateLimitNotification fromObject:limiter userInfo:(id)anything()];
+    
+    // don't trigger a debugging assertion in the rate limiter (that we are, actually, no longer at the QPSLimit when we notify).
+    [context checking:^(LRExpectationBuilder *builder) {
+        [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeInterval:1.0 sinceDate:startAndFinishDate]);
+    }];
+    
+    [limiter performSelector:selector withObject:object];
     assertContextSatisfied(context);
 }
 

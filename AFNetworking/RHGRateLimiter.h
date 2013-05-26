@@ -8,11 +8,12 @@
 
 #import <Foundation/Foundation.h>
 #import "RHGCurrentDateWrapper.h"
+#import "RHGPerformDelayedSelectorWrapper.h"
 
 @interface RHGRateLimiter : NSObject <NSLocking>
 
-// - (instancetype)initWithQPSLimit:(NSInteger)qpsLimit; // hardcoded to 4.
-- (instancetype)initWithCurrentDateWrapper:(id <RHGCurrentDateWrapper>)currentDateWrapper;
+- (instancetype)initWithCurrentDateWrapper:(id <RHGCurrentDateWrapper>)aCurrentDateWrapper performDelayedSelectorWrapper:(RHGPerformDelayedSelectorWrapper *)aPerformDelayedSelectorWrapper;
+
 
 - (BOOL)atRateLimit;
 - (NSUInteger)rateLimit;
@@ -30,3 +31,6 @@
 - (BOOL)obeysRateLimiter;
 
 @end
+
+
+extern NSString * const RHGRateLimiterDidLiftRateLimitNotification;
