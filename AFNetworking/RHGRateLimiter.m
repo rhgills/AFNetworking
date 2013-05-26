@@ -29,7 +29,7 @@
 
 
 
-NSString * const RHGRateLimiterDidLiftRateLimitNotification = @"RHGRateLimiterDidLiftRateLimitNotification";
+NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateLimiterDidLiftRateLimitNotification";
 
 
 @interface RHGRateLimiter ()
@@ -190,7 +190,7 @@ NSString * const RHGRateLimiterDidLiftRateLimitNotification = @"RHGRateLimiterDi
 - (void)markQPSLimitChanged
 {
     NSParameterAssert( ![self atRateLimit] );
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimiterDidLiftRateLimitNotification object:self];
+    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimiterMightHaveLiftedRateLimitNotification object:self];
 }
 
 - (RHGRateLimiterRequestInfo *)infoForOperation:(id)operation

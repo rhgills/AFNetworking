@@ -33,4 +33,4 @@
 @end
 
 
-extern NSString * const RHGRateLimiterDidLiftRateLimitNotification;
+extern NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification;

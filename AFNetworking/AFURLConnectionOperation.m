@@ -133,7 +133,6 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
 
 // rate limiting
 @property (nonatomic)  BOOL connectionNeedsStart;
-@property BOOL observingRateLimiter;
 
 @end
 
@@ -275,9 +274,7 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
 }
 
 - (void)dealloc {
-    if (self.observingRateLimiter) {
-        [self.rateLimiter removeObserver:self forKeyPath:PROPERTY(atRateLimit)];
-    }
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     if (_outputStream) {
         [_outputStream close];
@@ -598,35 +595,27 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
     _connectionNeedsStart = connectionNeedsStart;
     
     if (_connectionNeedsStart) {
-        NSParameterAssert(self.observingRateLimiter == NO);
         NSParameterAssert(self.rateLimiter);
-        NSLog(@"%@ is now watching for KVO change notiifcations on %p", [self request], self.rateLimiter);
-        [self.rateLimiter addObserver:self forKeyPath:PROPERTY(atRateLimit) options:0 context:NULL];
-        self.observingRateLimiter = YES;
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(rateLimiterMightHaveLiftedRateLimit:) name:RHGRateLimiterMightHaveLiftedRateLimitNotification object:self.rateLimiter];
     }else{
-        //        [self.rateLimiter removeObserver:self forKeyPath:PROPERTY(atRateLimit)];
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:RHGRateLimiterMightHaveLiftedRateLimitNotification object:self.rateLimiter];
     }
 }
 
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
-{
-    if ([keyPath isEqualToString:PROPERTY(atRateLimit)]) {
-        [self.rateLimiter lock];
-        
-        BOOL atLimit = self.rateLimiter.atRateLimit;
-        
-        if (!atLimit && self.connectionNeedsStart) {
-            self.connectionNeedsStart = NO;
-            [self connectionWillStart]; // this won't call us again as long as we set connetionNeedsStart = NO BEFORE posting it.
-            [self.connection performSelector:@selector(start) onThread:[[self class] networkRequestThread] withObject:nil waitUntilDone:NO modes:[self.runLoopModes allObjects]];
-        }
-        
-        [self.rateLimiter unlock];
-    }else{
-        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+- (void)rateLimiterMightHaveLiftedRateLimit:(NSNotification *)aNotification
+{    
+    [self.rateLimiter lock];
+    
+    BOOL atLimit = self.rateLimiter.atRateLimit;
+    
+    if (!atLimit && self.connectionNeedsStart) {
+        self.connectionNeedsStart = NO;
+        [self connectionWillStart]; // this won't call us again as long as we set connetionNeedsStart = NO BEFORE posting it.
+        [self.connection performSelector:@selector(start) onThread:[[self class] networkRequestThread] withObject:nil waitUntilDone:NO modes:[self.runLoopModes allObjects]];
     }
+    
+    [self.rateLimiter unlock];
 }
-
 
 #pragma mark - NSURLConnectionDelegate
 

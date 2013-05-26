@@ -299,7 +299,7 @@
     assertContextSatisfied(context);
     
     // the selector works
-    [context expectNotificationNamed:RHGRateLimiterDidLiftRateLimitNotification fromObject:limiter userInfo:(id)anything()];
+    [context expectNotificationNamed:RHGRateLimiterMightHaveLiftedRateLimitNotification fromObject:limiter userInfo:(id)anything()];
     
     // don't trigger a debugging assertion in the rate limiter (that we are, actually, no longer at the QPSLimit when we notify).
     [context checking:^(LRExpectationBuilder *builder) {
