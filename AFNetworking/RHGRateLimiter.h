@@ -23,7 +23,7 @@
 
 
 
-@protocol RHGQPSLimitedRequestOperation <NSObject>
+@protocol RHGRateLimitedRequestOperation <NSObject>
 
 @required
 @property (weak) RHGRateLimiter *rateLimiter; // rateLimiter will retain us.

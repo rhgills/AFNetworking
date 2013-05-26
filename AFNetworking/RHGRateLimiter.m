@@ -16,7 +16,7 @@
 - (id)initWithRequestOperation:(AFHTTPRequestOperation*)aRequestOperation;
 
 @property (nonatomic, strong) NSDate *finishDate;
-@property id <RHGQPSLimitedRequestOperation> requestOperation;
+@property id <RHGRateLimitedRequestOperation> requestOperation;
 
 // don't care
 @property NSTimeInterval startTimestamp;
@@ -238,7 +238,7 @@
 
 @implementation RHGRateLimiterRequestInfo
 
-- (id)initWithRequestOperation:(id <RHGQPSLimitedRequestOperation>)aRequestOperation
+- (id)initWithRequestOperation:(id <RHGRateLimitedRequestOperation>)aRequestOperation
 {
     self = [super init];
     if (self) {

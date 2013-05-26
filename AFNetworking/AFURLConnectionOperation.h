@@ -92,7 +92,7 @@ typedef enum {
 } AFURLConnectionOperationSSLPinningMode;
 #endif
 
-@interface AFURLConnectionOperation : NSOperation <RHGQPSLimitedRequestOperation, NSURLConnectionDelegate,
+@interface AFURLConnectionOperation : NSOperation <RHGRateLimitedRequestOperation, NSURLConnectionDelegate,
 #if (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 50000) || \
     (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080)
 NSURLConnectionDataDelegate, 

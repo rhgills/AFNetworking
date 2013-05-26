@@ -278,7 +278,7 @@
 
 - (id)newQPSLimitedOperation
 {
-    id mock = [context protocolMock:@protocol(RHGQPSLimitedRequestOperation)];
+    id mock = [context protocolMock:@protocol(RHGRateLimitedRequestOperation)];
     
     [context checking:^(LRExpectationBuilder *builder) {
         [allowing(mock) obeysRateLimiter]; [builder will:returnBool(YES)];
