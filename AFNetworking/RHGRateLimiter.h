@@ -7,7 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "RGKit/RHGCurrentDateWrapper.h"
+#import "RHGCurrentDateWrapper.h"
 
 @interface RHGRateLimiter : NSObject <NSLocking>
 

@@ -71,13 +71,13 @@
          location = "group:RGKit"
          name = "RGKit">
          <FileRef
-            location = "group:RHGCurrentDateWrapper.h">
+            location = "group:../RHGCurrentDateWrapper.h">
          </FileRef>
          <FileRef
-            location = "group:RHGHelperMacros.h">
+            location = "group:../RHGHelperMacros.h">
          </FileRef>
          <FileRef
-            location = "group:RHGHelperMacros.m">
+            location = "group:../RHGHelperMacros.m">
          </FileRef>
       </Group>
    </Group>

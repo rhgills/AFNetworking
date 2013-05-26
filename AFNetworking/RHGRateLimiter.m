@@ -7,7 +7,7 @@
 //
 
 #import "RHGRateLimiter.h"
-#import "RGKit/RHGHelperMacros.h"
+#import "RHGHelperMacros.h"
 #import "AFNetworking.h"
 #import "RXCollection.h"
 
