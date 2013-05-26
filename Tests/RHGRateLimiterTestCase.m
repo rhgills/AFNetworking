@@ -56,7 +56,7 @@
 
 
 #pragma mark - Tests
-- (void)testThatQPSLimitSetTo4
+- (void)testThatRateLimitSetTo4
 {
     assertThat(@( [limiter rateLimit] ), equalTo(@4));
     assertContextSatisfied(context);
@@ -68,7 +68,7 @@
     assertContextSatisfied(context);
 }
 
-- (void)testThatQPSLimitIgnoredForNotificationsWithNoObject
+- (void)testThatRateLimitIgnoredForNotificationsWithNoObject
 {
     // when
     [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
@@ -82,7 +82,7 @@
     assertContextSatisfied(context);
 }
 
-- (void)testThatQPSLimitIgnoredForNetworkingOperationsThatDontImplementQPSLimitedProtocol
+- (void)testThatRateLimitIgnoredForNetworkingOperationsThatDontImplementRateLimitedProtocol
 {
     // when
     [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:[[NSObject alloc] init]];
@@ -98,7 +98,7 @@
     assertContextSatisfied(context);
 }
 
-- (void)testThatThreeRequestsNotAboveQPSLimit
+- (void)testThatThreeRequestsNotAboveRateLimit
 {
     [context checking:^(LRExpectationBuilder *builder) {
         [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeIntervalSince1970:0]);
@@ -110,7 +110,7 @@
     assertContextSatisfied(context);
 }
 
-- (void)testThatOneFinishedRequestJustNowNotAboveQPSLimit
+- (void)testThatOneFinishedRequestJustNowNotAboveRateLimit
 {
     [context checking:^(LRExpectationBuilder *builder) {
         [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeIntervalSince1970:0]);
@@ -123,7 +123,7 @@
     assertContextSatisfied(context);
 }
 
-- (void)testThatFourRequestsAtQPSLimit
+- (void)testThatFourRequestsAtRateLimit
 {
     NSArray *started = [self postStartNotificationNTimes:4];
     
@@ -131,7 +131,7 @@
     assertContextSatisfied(context);
 }
 
-- (void)testThatFiveRequestsAtQPSLimit
+- (void)testThatFiveRequestsAtRateLimit
 {
     NSArray *started = [self postStartNotificationNTimes:5];
     
@@ -139,7 +139,7 @@
     assertContextSatisfied(context);
 }
 
-- (void)testThatQPSLimitPersistsForANonZeroTimeInterval
+- (void)testThatRateLimitPersistsForANonZeroTimeInterval
 {
     [context checking:^(LRExpectationBuilder *builder) {
         [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeIntervalSince1970:0]);
@@ -250,7 +250,7 @@
     assertContextSatisfied(context);
 }
 
-- (void)testAtQPSLimitWhenRequestsOngoing
+- (void)testAtRateLimitWhenRequestsOngoing
 {
     NSDate *startDate = [NSDate dateWithTimeIntervalSince1970:0.0];
     [context checking:^(LRExpectationBuilder *builder) {
@@ -276,7 +276,7 @@
     _notificationReceived = YES;
 }
 
-- (id)newQPSLimitedOperation
+- (id)newRateLimitedOperation
 {
     id mock = [context protocolMock:@protocol(RHGRateLimitedRequestOperation)];
     
@@ -289,7 +289,7 @@
 
 - (id)postStartNotification
 {
-    id operation = [self newQPSLimitedOperation];
+    id operation = [self newRateLimitedOperation];
     [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:operation];
     return operation;
 }
