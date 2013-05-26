@@ -15,6 +15,8 @@ Pod::Spec.new do |s|
   s.osx.deployment_target = '10.7'
   s.osx.frameworks = 'CoreServices', 'SystemConfiguration', 'Security'
 
+  s.dependency 'RXCollections'
+
   s.prefix_header_contents = <<-EOS
 #import <Availability.h>
 

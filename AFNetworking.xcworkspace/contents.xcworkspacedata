@@ -61,6 +61,25 @@
       <FileRef
          location = "group:UIImageView+AFNetworking.m">
       </FileRef>
+      <FileRef
+         location = "group:RHGRateLimiter.h">
+      </FileRef>
+      <FileRef
+         location = "group:RHGRateLimiter.m">
+      </FileRef>
+      <Group
+         location = "group:RGKit"
+         name = "RGKit">
+         <FileRef
+            location = "group:RHGCurrentDateWrapper.h">
+         </FileRef>
+         <FileRef
+            location = "group:RHGHelperMacros.h">
+         </FileRef>
+         <FileRef
+            location = "group:RHGHelperMacros.m">
+         </FileRef>
+      </Group>
    </Group>
    <FileRef
       location = "group:Tests/AFNetworking Tests.xcodeproj">

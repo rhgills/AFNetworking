@@ -7,6 +7,8 @@ def import_pods
   pod 'Expecta', '~> 0.2.1'
   pod 'AFHTTPRequestOperationLogger', '~> 0.10.0'
   pod 'AFNetworking', :path => '../'
+  pod 'LRMocky', :git => 'https://github.com/rhgills/LRMocky/', :branch => 'v0.9.x'
+  pod 'OCHamcrest'
 end
 
 target :ios do

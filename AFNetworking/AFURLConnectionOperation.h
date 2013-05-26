@@ -21,7 +21,7 @@
 // THE SOFTWARE.
 
 #import <Foundation/Foundation.h>
-
+#import "RHGRateLimiter.h"
 #import <Availability.h>
 
 /**
@@ -92,7 +92,7 @@ typedef enum {
 } AFURLConnectionOperationSSLPinningMode;
 #endif
 
-@interface AFURLConnectionOperation : NSOperation <NSURLConnectionDelegate,
+@interface AFURLConnectionOperation : NSOperation <RHGQPSLimitedRequestOperation, NSURLConnectionDelegate,
 #if (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 50000) || \
     (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080)
 NSURLConnectionDataDelegate, 
@@ -384,3 +384,6 @@ extern NSString * const AFNetworkingOperationDidStartNotification;
  Posted when an operation finishes.
  */
 extern NSString * const AFNetworkingOperationDidFinishNotification;
+
+extern NSString * const RHGRateLimitedURLConnectionOperationConnectionWillStartNotification;
+
