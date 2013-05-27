@@ -45,7 +45,8 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
 
 @property NSUInteger runningOperations;
 @property NSMutableSet *lastFourRequests;
-@property (readonly) NSRecursiveLock *qpsLock;
+@property (readonly) NSRecursiveLock *rateLimitedRequestStartLock;
+@property (nonatomic, strong) NSRecursiveLock *lock;
 
 @end
 
@@ -60,6 +61,8 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
 @synthesize performDelayedSelectorWrapper = _performDelayedSelectorWrapper;
 
 @synthesize lastFourRequests = _lastFourRequests;
+@synthesize lock = _lock;
+
 
 - (id)initWithCurrentDateWrapper:(id <RHGCurrentDateWrapper>)aCurrentDateWrapper performDelayedSelectorWrapper:(RHGPerformDelayedSelectorWrapper*)aPerformDelayedSelectorWrapper
 {
@@ -77,7 +80,9 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
         _runningOperations = 0;
         _lastFourRequests = [[NSMutableSet alloc] initWithCapacity:[self rateLimit]];
         
-        _qpsLock = [[NSRecursiveLock alloc] init];
+        _rateLimitedRequestStartLock = [[NSRecursiveLock alloc] init];
+        
+        _lock = [[NSRecursiveLock alloc] init];
     }
     return self;
 }
@@ -94,12 +99,20 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
 
 - (void)connectionWillStartFromNotification:(NSNotification *)aNotification
 {
+    [self.lock lock];
+    
     [self connectionWillStart:aNotification.object];
+    
+    [self.lock unlock];
 }
 
 - (void)operationDidFinishFromNotification:(NSNotification *)aNotification
 {
+    [self.lock lock];
+    
     [self operationDidFinish:aNotification.object];
+    
+    [self.lock unlock];
 }
 
 - (BOOL)operationIsSubjectToRateLimiting:(id)operation
@@ -206,7 +219,13 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
 
 - (BOOL)atRateLimit
 {
-    return (self.runningOperations + [[self requestsFinishedWithinTheLastSecond] count] >= [self rateLimit]);
+    [self.lock lock];
+    
+    BOOL atRateLimit = (self.runningOperations + [[self requestsFinishedWithinTheLastSecond] count] >= [self rateLimit]);
+    
+    [self.lock unlock];
+    
+    return atRateLimit;
 }
 
 - (NSSet *)requestsFinishedWithinTheLastSecond
@@ -232,12 +251,12 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
 #pragma mark - NSLocking
 - (void)lock
 {
-    [self.qpsLock lock];
+    [self.rateLimitedRequestStartLock lock];
 }
 
 - (void)unlock
 {
-    [self.qpsLock unlock];
+    [self.rateLimitedRequestStartLock unlock];
 }
 
 @end

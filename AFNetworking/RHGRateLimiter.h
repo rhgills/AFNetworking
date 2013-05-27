@@ -10,6 +10,12 @@
 #import "RHGCurrentDateWrapper.h"
 #import "RHGPerformDelayedSelectorWrapper.h"
 
+
+// Listens for RHGRateLimitedURLConnectionOperationConnectionWillStartNotification and
+// AFNetworkingOperationDidFinishNotification to update atRateLimit.
+//
+// Callers must -lock before checking rate limit, must only start a request if not atRateLimit, and must
+// call -unlock afterwards.
 @interface RHGRateLimiter : NSObject <NSLocking>
 
 - (instancetype)initWithCurrentDateWrapper:(id <RHGCurrentDateWrapper>)aCurrentDateWrapper performDelayedSelectorWrapper:(RHGPerformDelayedSelectorWrapper *)aPerformDelayedSelectorWrapper;

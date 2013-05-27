@@ -504,19 +504,10 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
 - (void)operationDidStart {
     [self.lock lock];
     if (! [self isCancelled]) {
-        self.connection = [[NSURLConnection alloc] initWithRequest:self.request delegate:self startImmediately:NO];
-        
-        NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
-        for (NSString *runLoopMode in self.runLoopModes) {
-            [self.connection scheduleInRunLoop:runLoop forMode:runLoopMode];
-            [self.outputStream scheduleInRunLoop:runLoop forMode:runLoopMode];
-        }
-        
         [self.rateLimiter lock];
         
         if (!self.rateLimiter.atRateLimit || ![self obeysRateLimiter]) {
-            [self connectionWillStart];
-            [self.connection start];
+            [self startConnection];
         }else{
             self.connectionNeedsStart = YES;
         }
@@ -532,6 +523,21 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
     if ([self isCancelled]) {
         [self finish];
     }
+}
+
+- (void)startConnection
+{
+    self.connectionNeedsStart = NO;
+    self.connection = [[NSURLConnection alloc] initWithRequest:self.request delegate:self startImmediately:NO];
+    
+    NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
+    for (NSString *runLoopMode in self.runLoopModes) {
+        [self.connection scheduleInRunLoop:runLoop forMode:runLoopMode];
+        [self.outputStream scheduleInRunLoop:runLoop forMode:runLoopMode];
+    }
+    
+    [self connectionWillStart];
+    [self.connection start];
 }
 
 - (void)finish {
@@ -603,18 +609,18 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
 }
 
 - (void)rateLimiterMightHaveLiftedRateLimit:(NSNotification *)aNotification
-{    
+{
+    [self.lock lock];
     [self.rateLimiter lock];
     
     BOOL atLimit = self.rateLimiter.atRateLimit;
     
     if (!atLimit && self.connectionNeedsStart) {
-        self.connectionNeedsStart = NO;
-        [self connectionWillStart]; // this won't call us again as long as we set connetionNeedsStart = NO BEFORE posting it.
-        [self.connection performSelector:@selector(start) onThread:[[self class] networkRequestThread] withObject:nil waitUntilDone:NO modes:[self.runLoopModes allObjects]];
+        [self startConnection];
     }
     
     [self.rateLimiter unlock];
+    [self.lock unlock];
 }
 
 #pragma mark - NSURLConnectionDelegate
