@@ -10,33 +10,38 @@
 #import "RHGCurrentDateWrapper.h"
 #import "RHGPerformDelayedSelectorWrapper.h"
 
+@class RHGRateLimiter;
 
-// Listens for RHGRateLimitedURLConnectionOperationConnectionWillStartNotification and
-// AFNetworkingOperationDidFinishNotification to update atRateLimit.
-//
-// Callers must -lock before checking rate limit, must only start a request if not atRateLimit, and must
-// call -unlock afterwards.
-@interface RHGRateLimiter : NSObject <NSLocking>
-
-- (instancetype)initWithCurrentDateWrapper:(id <RHGCurrentDateWrapper>)aCurrentDateWrapper performDelayedSelectorWrapper:(RHGPerformDelayedSelectorWrapper *)aPerformDelayedSelectorWrapper;
-
-
-- (BOOL)atRateLimit;
-- (NSUInteger)rateLimit;
-
-- (void)tearDown; // workaround for memory management issues causing it to continue to observe notifications after we nil out the reference in the test case.
-
-@end
 
 
 
 @protocol RHGRateLimitedRequestOperation <NSObject>
 
 @required
-@property (weak) RHGRateLimiter *rateLimiter; // rateLimiter will retain us.
-- (BOOL)obeysRateLimiter;
+@property (weak) RHGRateLimiter *rateLimiter; // rateLimiter will retain 
+
+// Returns YES if the connection was started, NO if the connection was not (and will never be)
+// started. For example, return NO if the operation is already finished or cancelled.
+- (BOOL)rateLimiterRequestsConnectionStart:(RHGRateLimiter *)theRateLimiter;
 
 @end
 
 
-extern NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification;
+
+// Listens for RHGRateLimitedURLConnectionOperationConnectionWillStartNotification and
+// AFNetworkingOperationDidFinishNotification to update atRateLimit.
+//
+// Callers must -lock before checking rate limit, must only start a request if not atRateLimit, and must
+// call -unlock afterwards.
+@interface RHGRateLimiter : NSObject
+
+- (instancetype)initWithCurrentDateWrapper:(id <RHGCurrentDateWrapper>)aCurrentDateWrapper performDelayedSelectorWrapper:(RHGPerformDelayedSelectorWrapper *)aPerformDelayedSelectorWrapper;
+- (NSUInteger)rateLimit;
+
+- (void)registerWaitingConnectionForRequestOperation:(id <RHGRateLimitedRequestOperation>)aRequestOperation;
+- (void)requestOperationConnectionDidFinish:(id <RHGRateLimitedRequestOperation>)aRequestOperation;
+
+// exposed to tests because LRMocky doesn't handle SEL params very well.
+- (void)runWaitingConnectionsUpToRateLimit;
+
+@end

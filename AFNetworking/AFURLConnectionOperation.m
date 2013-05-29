@@ -502,17 +502,18 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
 }
 
 - (void)operationDidStart {
+    // run under the [[self class] networkRequestThread]
+    
     [self.lock lock];
     if (! [self isCancelled]) {
-        [self.rateLimiter lock];
         
-        if (!self.rateLimiter.atRateLimit || ![self obeysRateLimiter]) {
+        if (!self.rateLimiter) {
             [self startConnection];
         }else{
             self.connectionNeedsStart = YES;
+            [self.rateLimiter registerWaitingConnectionForRequestOperation:self];
         }
         
-        [self.rateLimiter unlock];
     }
     [self.lock unlock];
     
@@ -527,6 +528,8 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
 
 - (void)startConnection
 {
+    // run under the [[self class] networkRequestThread]
+    
     self.connectionNeedsStart = NO;
     self.connection = [[NSURLConnection alloc] initWithRequest:self.request delegate:self startImmediately:NO];
     
@@ -577,50 +580,27 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
     }
 }
 
-
-#pragma mark - Rate Limiting
-- (BOOL)obeysRateLimiter
+#pragma mark - RHGRateLimitedRequestOperation
+- (BOOL)rateLimiterRequestsConnectionStart:(RHGRateLimiter *)theRateLimiter
 {
-    return self.rateLimiter != nil;
+    if (!self.connectionNeedsStart) {
+        NSLog(@"%@ called when connection does not need to be started.", @"rateLimiterRequestsConnectionStart:");
+        return NO;
+    }
+    
+    if (self.cancelled) {
+        NSLog(@"%@ called when operation cancelled.", @"rateLimiterRequestsConnectionStart:");
+        return NO;
+    }
+    
+    [self performSelector:@selector(startConnection) onThread:[[self class] networkRequestThread] withObject:nil waitUntilDone:NO modes:[self.runLoopModes allObjects]];
+    return YES;
 }
 
+#pragma mark - Rate Limiting
 - (void)connectionWillStart
 {
     [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:self];
-}
-
-- (void)setConnectionNeedsStart:(BOOL)connectionNeedsStart
-{
-    // must be called under the rateLimiter lock
-    
-    if (connectionNeedsStart == NO) {
-        // don't set connectionNeedsStart to NO when it was YES. a strict toggle.
-        NSParameterAssert(_connectionNeedsStart == YES);
-    }
-    
-    _connectionNeedsStart = connectionNeedsStart;
-    
-    if (_connectionNeedsStart) {
-        NSParameterAssert(self.rateLimiter);
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(rateLimiterMightHaveLiftedRateLimit:) name:RHGRateLimiterMightHaveLiftedRateLimitNotification object:self.rateLimiter];
-    }else{
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:RHGRateLimiterMightHaveLiftedRateLimitNotification object:self.rateLimiter];
-    }
-}
-
-- (void)rateLimiterMightHaveLiftedRateLimit:(NSNotification *)aNotification
-{
-    [self.lock lock];
-    [self.rateLimiter lock];
-    
-    BOOL atLimit = self.rateLimiter.atRateLimit;
-    
-    if (!atLimit && self.connectionNeedsStart) {
-        [self startConnection];
-    }
-    
-    [self.rateLimiter unlock];
-    [self.lock unlock];
 }
 
 #pragma mark - NSURLConnectionDelegate

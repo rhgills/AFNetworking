@@ -7,22 +7,23 @@ PODS:
   - LRMocky (0.9.1x)
   - OCHamcrest (2.0.1)
   - OCMock (2.1.1)
+  - OHHTTPStubs (1.1.1)
   - RXCollections (1.0)
 
 DEPENDENCIES:
   - AFHTTPRequestOperationLogger (~> 0.10.0)
   - AFNetworking (from `../`)
   - Expecta (~> 0.2.1)
-  - LRMocky (from `https://github.com/rhgills/LRMocky/`, branch `v0.9.x`)
+  - LRMocky (from `/Users/rhgill/Code/vendor/LRMocky`)
   - OCHamcrest
   - OCMock (~> 2.1.1)
+  - OHHTTPStubs
 
 EXTERNAL SOURCES:
   AFNetworking:
     :path: ../
   LRMocky:
-    :branch: v0.9.x
-    :git: https://github.com/rhgills/LRMocky/
+    :path: /Users/rhgill/Code/vendor/LRMocky
 
 SPEC CHECKSUMS:
   AFHTTPRequestOperationLogger: 34ba125cb9eeb77a3b67aaaca105720ba3a0798c
@@ -31,6 +32,7 @@ SPEC CHECKSUMS:
   LRMocky: 6e2d031e27d5490d48404f006cdbc87ec71e2365
   OCHamcrest: 07dc0921b4c4ee7a3137e22d6a41ca236d93d2bf
   OCMock: 79212e5e328378af5cfd6edb5feacfd6c49cd8a3
+  OHHTTPStubs: cb1cef742f2fba18b192fb92ede52a69cf3a04d5
   RXCollections: 7df8fcb97b433260a11ce226dd74b50545ff0a0f
 
-COCOAPODS: 0.19.1
+COCOAPODS: 0.20.2

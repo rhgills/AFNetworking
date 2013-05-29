@@ -28,11 +28,10 @@
 @end
 
 
-
-NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateLimiterDidLiftRateLimitNotification";
-
-
 @interface RHGRateLimiter ()
+
+- (BOOL)atRateLimit;
+
 
 - (void)operationDidStart;
 - (void)operationDidFinish;
@@ -45,8 +44,7 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
 
 @property NSUInteger runningOperations;
 @property NSMutableSet *lastFourRequests;
-@property (readonly) NSRecursiveLock *rateLimitedRequestStartLock;
-@property (nonatomic, strong) NSRecursiveLock *lock;
+@property (nonatomic, readonly) NSRecursiveLock *lock;
 
 @end
 
@@ -55,7 +53,10 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
 
 
 
-@implementation RHGRateLimiter
+@implementation RHGRateLimiter {
+    
+    NSMutableArray *_waitingConnections;
+}
 
 @synthesize currentDateWrapper = _currentDateWrapper;
 @synthesize performDelayedSelectorWrapper = _performDelayedSelectorWrapper;
@@ -73,85 +74,25 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
         
         NSParameterAssert(aPerformDelayedSelectorWrapper);
         _performDelayedSelectorWrapper = aPerformDelayedSelectorWrapper;
-        
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(connectionWillStartFromNotification:) name:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(operationDidFinishFromNotification:) name:AFNetworkingOperationDidFinishNotification object:nil];
+    
         
         _runningOperations = 0;
         _lastFourRequests = [[NSMutableSet alloc] initWithCapacity:[self rateLimit]];
         
-        _rateLimitedRequestStartLock = [[NSRecursiveLock alloc] init];
-        
         _lock = [[NSRecursiveLock alloc] init];
+        
+        _waitingConnections = [[NSMutableArray alloc] initWithCapacity:0];
     }
     return self;
 }
 
+
+
 - (void)dealloc
 {
-    [self tearDown];
+
 }
 
-- (void)tearDown
-{
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-}
-
-- (void)connectionWillStartFromNotification:(NSNotification *)aNotification
-{
-    [self.lock lock];
-    
-    [self connectionWillStart:aNotification.object];
-    
-    [self.lock unlock];
-}
-
-- (void)operationDidFinishFromNotification:(NSNotification *)aNotification
-{
-    [self.lock lock];
-    
-    [self operationDidFinish:aNotification.object];
-    
-    [self.lock unlock];
-}
-
-- (BOOL)operationIsSubjectToRateLimiting:(id)operation
-{
-    if ([operation respondsToSelector:@selector(obeysRateLimiter)]) {
-        return [operation performSelector:@selector(obeysRateLimiter)]; // workaround for LRMocky bug.
-    }
-    
-    return NO;
-}
-
-- (void)connectionWillStart:(id)operation
-{
-    // This must only be called by callers under QPS lock?
-    
-    if (![self operationIsSubjectToRateLimiting:operation]) {
-        return;
-    }
-    
-    
-    
-//    NSParameterAssert([self atQPSLimit] == NO);
-    if ([self atRateLimit]) {
-        NSLog(@"connectionWillStart called in %@ when already at rate limit.", self);
-    }
-    
-    [self willChangeValueForKey:PROPERTY(atRateLimit)];
-    
-    RHGRateLimiterRequestInfo *qpsInfo = [[RHGRateLimiterRequestInfo alloc] initWithRequestOperation:operation];
-    [self insertOrReplaceOldestRequestInfoWithInfo:qpsInfo];
-    
-    self.runningOperations++;
-    
-    NSLog(@"Will start an operation. Triggering KVO change notification.");
-    [self didChangeValueForKey:PROPERTY(atRateLimit)];
-    NSLog(@"KVO change notification triggered.");
-    
-//    NSLog(@"Operation started. at rate limit? %@ is ready? %@ running operations %d last four %@", [self atQPSLimit] ? @"YES" : @"NO", [operation isReady] ? @"YES" : @"NO", self.runningOperations, self.lastFourRequests);
-}
 
 - (void)insertOrReplaceOldestRequestInfoWithInfo:(RHGRateLimiterRequestInfo *)info
 {
@@ -175,35 +116,6 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
     }];
     
     return oldestInfo;
-}
-
-- (void)operationDidFinish:(AFHTTPRequestOperation *)operation
-{
-    if (![self operationIsSubjectToRateLimiting:operation]) {
-        return;
-    }
-    
-    RHGRateLimiterRequestInfo *info = [self infoForOperation:operation];
-    info.finishDate = [self.currentDateWrapper currentDate];
-    info.requestOperation = nil; // don't care about it anymore, break the retani cycle
-    self.runningOperations--;
-    
-    [self lock]; // prevent rate limited reqeusts from starting, and changing [self atQPSLimit]
-    
-    NSLog(@"Operation finished. at rate limit? %@ running operations %d last four %@", [self atRateLimit] ? @"YES" : @"NO", self.runningOperations, self.lastFourRequests);
-    
-    if ([self atRateLimit]) {
-        // this will change in 1 second.
-        [self.performDelayedSelectorWrapper performSelector:@selector(markQPSLimitChanged) withObject:nil afterDelay:1.0 onTarget:self];
-    }
-    
-    [self unlock];
-}
-
-- (void)markQPSLimitChanged
-{
-    NSParameterAssert( ![self atRateLimit] );
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimiterMightHaveLiftedRateLimitNotification object:self];
 }
 
 - (RHGRateLimiterRequestInfo *)infoForOperation:(id)operation
@@ -233,6 +145,7 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
     NSDate *currentDate = [self.currentDateWrapper currentDate];
     
     return [self.lastFourRequests rx_filterWithBlock:^BOOL(RHGRateLimiterRequestInfo *each) {
+        if (!each.finishDate) return NO;
         return [currentDate timeIntervalSinceDate:each.finishDate] < 1.0;
     }];
 }
@@ -247,16 +160,96 @@ NSString * const RHGRateLimiterMightHaveLiftedRateLimitNotification = @"RHGRateL
     return 4;
 }
 
-
-#pragma mark - NSLocking
-- (void)lock
+- (void)registerWaitingConnectionForRequestOperation:(id<RHGRateLimitedRequestOperation>)aRequestOperation
 {
-    [self.rateLimitedRequestStartLock lock];
+    [self.lock lock];
+    
+    if (![self atRateLimit]) {
+        [self runWaitingConnectionForRequestOperation:aRequestOperation];
+    }else{
+        [_waitingConnections addObject:aRequestOperation];
+    }
+    
+    [self.lock unlock];
 }
 
-- (void)unlock
+- (void)requestOperationConnectionDidFinish:(id<RHGRateLimitedRequestOperation>)aRequestOperation
 {
-    [self.rateLimitedRequestStartLock unlock];
+    [self.lock lock];
+    
+    RHGRateLimiterRequestInfo *info = [self infoForOperation:aRequestOperation];
+    info.finishDate = [self.currentDateWrapper currentDate];
+    info.requestOperation = nil; // don't care about it anymore, break the retani cycle
+    self.runningOperations--;
+    
+    if ([self atRateLimit]) {
+        // this will change in 1 second.
+        [self.performDelayedSelectorWrapper performSelector:@selector(runWaitingConnectionsUpToRateLimit) withObject:nil afterDelay:1.0 onTarget:self];
+    }
+    
+    [self.lock unlock];
+}
+
+- (void)requestOperationConnectionWillStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+{
+    RHGRateLimiterRequestInfo *qpsInfo = [[RHGRateLimiterRequestInfo alloc] initWithRequestOperation:aRequestOperation];
+    [self insertOrReplaceOldestRequestInfoWithInfo:qpsInfo];
+    self.runningOperations++;
+}
+
+- (void)requestOperationConnectionDidStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+{
+    [self.lock lock];
+    
+    [_waitingConnections removeLastObject];
+    
+    [self.lock unlock];
+}
+
+- (void)requestOperationConnectionDidDeclineToStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+{
+        [self.lock lock];
+    
+    [_waitingConnections removeLastObject];
+    
+    RHGRateLimiterRequestInfo *info = [self infoForOperation:aRequestOperation];
+    info.requestOperation = nil; // don't care about it anymore, break the retani cycle
+    self.runningOperations--;
+    
+    if ([self atRateLimit]) {
+        // this will change in 1 second.
+        [self.performDelayedSelectorWrapper performSelector:@selector(runWaitingConnectionsUpToRateLimit) withObject:nil afterDelay:1.0 onTarget:self];
+    }
+
+        [self.lock unlock];
+}
+
+- (void)runWaitingConnectionsUpToRateLimit
+{
+    [self.lock lock];
+    
+    id <RHGRateLimitedRequestOperation> aWaitingRequestOperation = nil;
+    while (![self atRateLimit] && (aWaitingRequestOperation = [_waitingConnections lastObject]) ) {
+        [self runWaitingConnectionForRequestOperation:aWaitingRequestOperation];
+    }
+    
+    [self.lock unlock];
+}
+
+- (void)runWaitingConnectionForRequestOperation:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+{
+    [self.lock lock];
+    
+    [self requestOperationConnectionWillStart:aRequestOperation];
+    BOOL started = [aRequestOperation rateLimiterRequestsConnectionStart:self];
+    
+    if (!started) {
+        [self requestOperationConnectionDidDeclineToStart:aRequestOperation];
+    }else{
+        [self requestOperationConnectionDidStart:aRequestOperation];
+    }
+    
+    [self.lock unlock];
 }
 
 @end

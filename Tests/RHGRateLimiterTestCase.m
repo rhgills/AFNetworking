@@ -30,330 +30,241 @@
     LRMockery *context;
     
     RHGRateLimiter *limiter;
+    
+    // dependencies
     id <RHGCurrentDateWrapper> currentDateWrapper;
+    NSDate *_currentDate;
     id performDelayedSelectorWrapper;
     
-    BOOL _notificationReceived;
+    // collaborators
+    id <RHGRateLimitedRequestOperation> rateLimitedRequestOperation;
+    
+    // helpers
+    NSMutableArray *_otherRunningRequestOperations;
 }
 
 #pragma mark - Lifecycle
 - (void)setUp
 {
     context = mockery();
-    _notificationReceived = NO;
     
     currentDateWrapper = [context protocolMock:@protocol(RHGCurrentDateWrapper)];
     performDelayedSelectorWrapper = [context mock:[RHGPerformDelayedSelectorWrapper class]];
+    limiter = [[RHGRateLimiter alloc] initWithCurrentDateWrapper:currentDateWrapper
+                                   performDelayedSelectorWrapper:performDelayedSelectorWrapper];
     
-    limiter = [[RHGRateLimiter alloc] initWithCurrentDateWrapper:currentDateWrapper performDelayedSelectorWrapper:performDelayedSelectorWrapper];
+    rateLimitedRequestOperation = [context protocolMock:@protocol(RHGRateLimitedRequestOperation)];
     
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeIntervalSince1970:0.0]);
-    }];
+    [self setCurrentTimestampSince1970To:0.0];
 }
 
 - (void)tearDown
 {
-    [limiter tearDown];
     limiter = nil;
 }
 
-
 #pragma mark - Tests
-- (void)testThatRateLimitSetTo4
-{
-    assertThat(@( [limiter rateLimit] ), equalTo(@4));
-    assertContextSatisfied(context);
-}
-
-- (void)testNoRequestsNotAboveLimit
-{
-    assertThatBool([limiter atRateLimit], equalToBool(NO));
-    assertContextSatisfied(context);
-}
-
-- (void)testThatRateLimitIgnoredForNotificationsWithNoObject
-{
-    // when
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:nil];
-    
-    assertThatBool([limiter atRateLimit], equalToBool(NO));
-    assertContextSatisfied(context);
-}
-
-- (void)testThatRateLimitIgnoredForNetworkingOperationsThatDontImplementRateLimitedProtocol
-{
-    // when
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:[[NSObject alloc] init]];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:[[NSObject alloc] init]];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:[[NSObject alloc] init]];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:[[NSObject alloc] init]];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:[[NSObject alloc] init]];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:[[NSObject alloc] init]];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:[[NSObject alloc] init]];
-    
-    
-    assertThatBool([limiter atRateLimit], equalToBool(NO));
-    assertContextSatisfied(context);
-}
-
-- (void)testThatThreeRequestsNotAboveRateLimit
+- (void)testThatNotStartedConnectionDoesNotCountTowardsRateLimit
 {
     [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeIntervalSince1970:0]);
+        [oneOf(rateLimitedRequestOperation) rateLimiterRequestsConnectionStart:limiter];
     }];
     
-    NSArray *started = [self postStartNotificationNTimes:3];
-    
-    assertThatBool([limiter atRateLimit], equalToBool(NO));
-    assertContextSatisfied(context);
-}
-
-- (void)testThatOneFinishedRequestJustNowNotAboveRateLimit
-{
+    // testThatUnderRateLimitConnectionsImmediatelyCallsBack, in a case where we would be at the rate limit (and not) if the not started connection counted.
+    [self startNOperations:[limiter rateLimit] - 1];
+    // start the op that will decline opportunity to start.
+    id cancelledOperation = [context protocolMock:@protocol(RHGRateLimitedRequestOperation)];
     [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeIntervalSince1970:0]);
+        [allowing(cancelledOperation) rateLimiterRequestsConnectionStart:limiter]; [builder will:returnBool(NO)];
     }];
-    
-    id started = [self postStartNotification];
-    [self postFinishNotificationForOperation:started];
-    
-    assertThatBool([limiter atRateLimit], equalToBool(NO));
-    assertContextSatisfied(context);
-}
-
-- (void)testThatFourRequestsAtRateLimit
-{
-    NSArray *started = [self postStartNotificationNTimes:4];
-    
-    assertThatBool([limiter atRateLimit], equalToBool(YES));
-    assertContextSatisfied(context);
-}
-
-- (void)testThatFiveRequestsAtRateLimit
-{
-    NSArray *started = [self postStartNotificationNTimes:5];
-    
-    assertThatBool([limiter atRateLimit], equalToBool(YES));
-    assertContextSatisfied(context);
-}
-
-- (void)testThatRateLimitPersistsForANonZeroTimeInterval
-{
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeIntervalSince1970:0]);
-    }];
-    
-    NSArray *started = [self postStartNotificationNTimes:4];
-    [self postFinishNotificationsForRequestOperations:started];
-    
-    assertThatBool([limiter atRateLimit], equalToBool(YES));
-    assertContextSatisfied(context);
-}
-
-- (void)testThatAnotherRequestCanBeMadeOneSecondAfterARequestFinishes
-{
-    NSDate *startDate = [NSDate dateWithTimeIntervalSince1970:0.0];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(startDate);
-    }];
-    
-    NSArray *started = [self postStartNotificationNTimes:4];
-    
-    NSDate *finishDate = startDate;
-    [self postFinishNotificationForOperation:[started lastObject]];
+    [limiter registerWaitingConnectionForRequestOperation:cancelledOperation];
     
     // when
-    NSDate *limitLiftedDate = [NSDate dateWithTimeInterval:1.0 sinceDate:finishDate];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(limitLiftedDate);
-    }];
+    [limiter registerWaitingConnectionForRequestOperation:rateLimitedRequestOperation];
     
     // then
-    assertThatBool([limiter atRateLimit], equalToBool(NO));
     assertContextSatisfied(context);
 }
 
-- (void)testThatNoRequestAllowedAfterLessThanOneSecondAfterFinish
+- (void)testThatNoConnectionsImmediatelyCallsBack
 {
-    NSDate *startDate = [NSDate dateWithTimeIntervalSince1970:0.0];
+    // given
     [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(startDate);
+        [oneOf(rateLimitedRequestOperation) rateLimiterRequestsConnectionStart:limiter];
     }];
-    
-    NSArray *started = [self postStartNotificationNTimes:4];
-    [self postFinishNotificationForOperation:[started lastObject]];
     
     // when
-    NSDate *finishDate = [NSDate dateWithTimeInterval:.9 sinceDate:startDate];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(finishDate);
-    }];
+    [limiter registerWaitingConnectionForRequestOperation:rateLimitedRequestOperation];
     
     // then
-    assertThatBool([limiter atRateLimit], equalToBool(YES));
     assertContextSatisfied(context);
 }
 
-- (void)testThatNoRequestAllowedLessThanOneSecondAfterFinishLongRequest
+- (void)testThatUnderRateLimitConnectionsImmediatelyCallsBack
 {
-    NSDate *startDate = [NSDate dateWithTimeIntervalSince1970:0.0];
+    // given
     [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(startDate);
+        [oneOf(rateLimitedRequestOperation) rateLimiterRequestsConnectionStart:limiter];
     }];
     
-    NSArray *started = [self postStartNotificationNTimes:4];
-    
-    NSDate *finishDate = [NSDate dateWithTimeInterval:20.0 sinceDate:startDate];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(finishDate);
-    }];
-    
-    [self postFinishNotificationForOperation:[started lastObject]];
+    [self startNOperations:[limiter rateLimit] - 1];
     
     // when
-    NSDate *checkDate = [NSDate dateWithTimeInterval:.9 sinceDate:finishDate];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(checkDate);
-    }];
+    [limiter registerWaitingConnectionForRequestOperation:rateLimitedRequestOperation];
     
     // then
-    assertThatBool([limiter atRateLimit], equalToBool(YES));
     assertContextSatisfied(context);
 }
 
-- (void)testThatRequestAllowedOneSecondAfterFinishLongRequest
+- (void)testThatAtRateLimitSchedulesRunningOneSecondAfterARequestFinishesAtRateLimit
 {
-    NSDate *startDate = [NSDate dateWithTimeIntervalSince1970:0.0];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(startDate);
+    // given
+    [context checking:^(LRExpectationBuilder *builder) {        
+        [oneOf(performDelayedSelectorWrapper) performSelector:@selector(runWaitingConnectionsUpToRateLimit) withObject:nil afterDelay:1.0 onTarget:limiter]; // ideally, we should capture the SEL and call it without knowing what it is - and we should use a ImmedatePerformDelayedselectorWrapper to just call immediately, and then ask it to assert that the delay is == 1.0. and make sure it doesn't have a chain of performDelayedSelectorCalls.
     }];
     
-    NSArray *started = [self postStartNotificationNTimes:4];
-    
-    NSDate *finishDate = [NSDate dateWithTimeInterval:20.0 sinceDate:startDate];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(finishDate);
-    }];
-    
-    [self postFinishNotificationForOperation:[started lastObject]];
-    
-    // when
-    NSDate *checkDate = [NSDate dateWithTimeInterval:1.0 sinceDate:finishDate];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(checkDate);
-    }];
-    
-    // then
-    assertThatBool([limiter atRateLimit], equalToBool(NO));
+    [self givenTheRequestOperationWaitsAtTheRateLimitForOtherOperations];
+    [self whenAStartedRequestOperationFinishes];
+
     assertContextSatisfied(context);
 }
 
-- (void)testAtRateLimitWhenRequestsOngoing
+- (void)testThatRunningWaitingConnectionsRunsAConnectionWhenItIsAllowedToRunStates
 {
-    NSDate *startDate = [NSDate dateWithTimeIntervalSince1970:0.0];
     [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(startDate);
+        [allowing(performDelayedSelectorWrapper) performSelector:@selector(runWaitingConnectionsUpToRateLimit) withObject:nil afterDelay:1.0 onTarget:limiter];
+        
+        [oneOf(rateLimitedRequestOperation) rateLimiterRequestsConnectionStart:limiter];
     }];
     
-    [self postStartNotificationNTimes:4];
+    [self givenTheRequestOperationWaitsAtTheRateLimitForOtherOperations];
+    [self whenAStartedRequestOperationFinishes];
+    [self whenTimePasses:1.0];
     
-    // when
-    NSDate *checkDate = [NSDate dateWithTimeInterval:20.0 sinceDate:startDate];
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(checkDate);
-    }];
-
-    // then
-    assertThatBool([limiter atRateLimit], equalToBool(YES));
+    [limiter runWaitingConnectionsUpToRateLimit];
+    
     assertContextSatisfied(context);
 }
 
-- (void)testThatNotificationPostedWhenRateLimitLifted
+
+- (void)testThatRunningWaitingConnectionsDoesNotRunAConnectionThatFinishedLessThan1SecondAgo
 {
-    NSDate *startAndFinishDate = [NSDate dateWithTimeIntervalSince1970:0.0];
-    
-    SEL selector = @selector(markQPSLimitChanged); // tightly coupled to the implementation because we can't pass an anything() hamcrest matcher as the selector argument and have it work.
-    __block id object;
     [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn(startAndFinishDate);
-    
-        [oneOf(performDelayedSelectorWrapper) performSelector:selector withObject:(id)anything() afterDelay:1 onTarget:limiter]; andThen(LRA_performBlock(^(NSInvocation *invocation) {
-//            [invocation getArgument:&selector atIndex:2];
-            [invocation getArgument:&object atIndex:3];
-        }));
-    }];
-    NSArray *started = [self postStartNotificationNTimes:4];
-    
-    //
-    // when
-    //
-    
-    // the selector was scheduled
-    [self postFinishNotificationForOperation:[started lastObject]];
-    assertContextSatisfied(context);
-    
-    // the selector works
-    [context expectNotificationNamed:RHGRateLimiterMightHaveLiftedRateLimitNotification fromObject:limiter userInfo:(id)anything()];
-    
-    // don't trigger a debugging assertion in the rate limiter (that we are, actually, no longer at the QPSLimit when we notify).
-    [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(currentDateWrapper) currentDate]; andReturn([NSDate dateWithTimeInterval:1.0 sinceDate:startAndFinishDate]);
+        [allowing(performDelayedSelectorWrapper) performSelector:@selector(runWaitingConnectionsUpToRateLimit) withObject:nil afterDelay:1.0 onTarget:limiter];
+        
+        [never(rateLimitedRequestOperation) rateLimiterRequestsConnectionStart:limiter];
     }];
     
-    [limiter performSelector:selector withObject:object];
+    [self givenTheRequestOperationWaitsAtTheRateLimitForOtherOperations];
+    [self whenAStartedRequestOperationFinishes];
+    [self whenTimePasses:.9];
+    
+    [limiter runWaitingConnectionsUpToRateLimit];
+
     assertContextSatisfied(context);
+}
+
+#pragma mark - Given/When/Then
+- (NSArray *)givenTheRequestOperationWaitsAtTheRateLimitForOtherOperations
+{
+    NSArray *started = [self startOperationsUpToRateLimit];
+    [self whenTheRateLimitedRequestOperationWantsToStart];
+    
+    _otherRunningRequestOperations = [started mutableCopy];
+    return started;
+}
+
+- (void)whenTheRateLimitedRequestOperationWantsToStart
+{
+    [limiter registerWaitingConnectionForRequestOperation:rateLimitedRequestOperation];
+}
+
+- (void)whenAStartedRequestOperationFinishes
+{
+    id opToFinish = [_otherRunningRequestOperations lastObject];
+    [limiter requestOperationConnectionDidFinish:opToFinish];
+    [_otherRunningRequestOperations removeObject:opToFinish];
+}
+
+- (void)whenARequestOperationFinishes:(id)operation
+{
+    [limiter requestOperationConnectionDidFinish:operation];
+}
+
+- (void)whenTimePasses:(NSInteger)delta
+{
+    [self incrementCurrentTimestampBy:delta];
 }
 
 #pragma mark - Helpers
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
+- (id)newRateLimitedOperationExpectingStart
 {
-    _notificationReceived = YES;
-}
-
-- (id)newRateLimitedOperation
-{
-    id mock = [context protocolMock:@protocol(RHGRateLimitedRequestOperation)];
+    id mock = [self newRateLimitedOperation];
     
     [context checking:^(LRExpectationBuilder *builder) {
-        [allowing(mock) obeysRateLimiter]; [builder will:returnBool(YES)];
+        [allowing(mock) rateLimiterRequestsConnectionStart:limiter]; [builder will:returnBool(YES)];
     }];
     
     return mock;
 }
 
-- (id)postStartNotification
+- (id)newRateLimitedOperation
 {
-    id operation = [self newRateLimitedOperation];
-    [[NSNotificationCenter defaultCenter] postNotificationName:RHGRateLimitedURLConnectionOperationConnectionWillStartNotification object:operation];
-    return operation;
+    id mock = [context protocolMock:@protocol(RHGRateLimitedRequestOperation)];
+    return mock;
 }
 
-- (NSArray *)postStartNotificationNTimes:(NSInteger)n
+- (NSArray *)startOperationsUpToRateLimit
 {
-    NSMutableArray *startedOperations = [NSMutableArray arrayWithCapacity:n];
-    for (NSInteger i = 0; i < n; i++) {
-        [startedOperations addObject:[self postStartNotification]];
+    return [self registerNOperationsAndExpectImmediateStart:[limiter rateLimit]];
+}
+
+- (NSArray *)startNOperations:(NSInteger)numberOfOperationsToStart
+{
+    return [self registerNOperationsAndExpectImmediateStart:numberOfOperationsToStart];
+}
+
+- (NSArray *)registerNOperationsAndExpectImmediateStart:(NSInteger)n
+{
+    NSMutableArray *operations = [NSMutableArray arrayWithCapacity:n];
+    for (int i = 0; i < n; i++) {
+        id anOperation = [self newRateLimitedOperationExpectingStart];
+        [limiter registerWaitingConnectionForRequestOperation:anOperation];
+        [operations addObject:anOperation];
     }
     
-    return [NSArray arrayWithArray:startedOperations];
+    return [NSArray arrayWithArray:operations];
 }
 
-- (void)postFinishNotificationsForRequestOperations:(NSArray *)operations
+- (NSArray *)createAndRegisterWaitingRequestOperations:(NSInteger)n
 {
-    for (id anOperation in operations) {
-        [self postFinishNotificationForOperation:anOperation];
+    NSMutableArray *operations = [NSMutableArray arrayWithCapacity:n];
+    for (int i = 0; i < n; i++) {
+        id anOperation = [self newRateLimitedOperation];
+        [limiter registerWaitingConnectionForRequestOperation:anOperation];
+        [operations addObject:anOperation];
     }
+    
+    return [NSArray arrayWithArray:operations];
 }
 
-- (void)postFinishNotificationForOperation:(id)operation
+#pragma mark - Time
+- (void)incrementCurrentTimestampBy:(NSTimeInterval)delta
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:AFNetworkingOperationDidFinishNotification object:operation];
+    [self setCurrentDate:[NSDate dateWithTimeInterval:delta sinceDate:_currentDate]];
 }
+     
+     - (void)setCurrentTimestampSince1970To:(NSTimeInterval)timestamp
+    {
+        [self setCurrentDate:[NSDate dateWithTimeIntervalSince1970:timestamp]];
+    }
+     
+     - (void)setCurrentDate:(NSDate *)date
+    {
+        [context checking:^(LRExpectationBuilder *builder) {
+            _currentDate = date;
+            [allowing(currentDateWrapper) currentDate]; andReturn(_currentDate);
+        }];
+    }
 
 @end
