@@ -12,7 +12,7 @@
 
 - (void)performSelector:(SEL)selector withObject:(id)object afterDelay:(NSTimeInterval)delay onTarget:(id)target
 {
-    
+    [target performSelector:selector withObject:object afterDelay:delay];
 }
 
 @end
