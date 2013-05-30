@@ -236,18 +236,6 @@
     return [NSArray arrayWithArray:operations];
 }
 
-- (NSArray *)createAndRegisterWaitingRequestOperations:(NSInteger)n
-{
-    NSMutableArray *operations = [NSMutableArray arrayWithCapacity:n];
-    for (int i = 0; i < n; i++) {
-        id anOperation = [self newRateLimitedOperation];
-        [limiter registerWaitingConnectionForRequestOperation:anOperation];
-        [operations addObject:anOperation];
-    }
-    
-    return [NSArray arrayWithArray:operations];
-}
-
 #pragma mark - Time
 - (void)incrementCurrentTimestampBy:(NSTimeInterval)delta
 {
