@@ -70,20 +70,9 @@
     [OHHTTPStubs removeAllRequestHandlers];
 }
 
-- (void)testAsksForRateLimiterCallback
-{
-    [connectionOperation setRateLimiter:rateLimiter];
-    
-    [context checking:^(LRExpectationBuilder *builder) {
-        [oneOf(rateLimiter) registerWaitingConnectionForRequestOperation:connectionOperation];
-    }];
-    
-    
-    [self startConnectionAndWaitUntilRegisteredAsWaitingWithRateLimiter];
+#pragma mark - Tests
 
-    assertContextSatisfied(context);
-}
-
+#pragma mark - Without Rate Limiter
 - (void)testStartsConnectionDirectly
 {
     [connectionOperation setRateLimiter:nil];
@@ -101,13 +90,29 @@
 - (void)testIndicatesConnectionNotStartedWhenOperationNotStarted
 {
     [connectionOperation setRateLimiter:nil];
-
+    
     
     STAssertFalse([connectionOperation rateLimiterRequestsConnectionStart:rateLimiter], nil);
     
     
     assertContextSatisfied(context);
 }
+
+#pragma mark - With Rate Limiter
+- (void)testAsksForRateLimiterCallback
+{
+    [connectionOperation setRateLimiter:rateLimiter];
+    
+    [context checking:^(LRExpectationBuilder *builder) {
+        [oneOf(rateLimiter) registerWaitingConnectionForRequestOperation:connectionOperation];
+    }];
+    
+    
+    [self startConnectionAndWaitUntilRegisteredAsWaitingWithRateLimiter];
+
+    assertContextSatisfied(context);
+}
+
 
 - (void)testIndicatesConnectionNotStartedWhenOperationCancelledWhileWaiting
 {
@@ -138,33 +143,6 @@
     assertContextSatisfied(context);
 }
 
-- (void)givenNetworkRequestsRespondWithA404
-{
-    [OHHTTPStubs addRequestHandler:^OHHTTPStubsResponse *(NSURLRequest *request, BOOL onlyCheck) {
-        return [OHHTTPStubsResponse responseWithError:[NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:nil]];
-    }];
-}
-
-- (void)startUnderRateLimiterAndWaitUntilFinished
-{
-    [connectionOperation setRateLimiter:rateLimiter];
-    [self givenNetworkRequestsRespondWithA404];
-    
-    [self startConnectionAndWaitUntilRegisteredAsWaitingWithRateLimiter];
-    [connectionOperation rateLimiterRequestsConnectionStart:rateLimiter];
-    
-    waitUntil(^BOOL{
-        return connectionOperation.isFinished;
-    });
-    STAssertTrue(connectionOperation.isFinished, nil);
-}
-
-- (void)givenNetworkRequestsDoNotComplete
-{
-    [OHHTTPStubs addRequestHandler:^OHHTTPStubsResponse *(NSURLRequest *request, BOOL onlyCheck) {
-        return [OHHTTPStubsResponse responseWithData:nil statusCode:404 responseTime:20.0 headers:nil]; // problem w/ leakage?
-    }];
-}
 
 - (void)testIndicatesConnectionNotStartedWhenConnectionAlreadyStartedAndOngoing
 {
@@ -199,16 +177,52 @@
     assertContextSatisfied(context);
 }
 
+- (void)testThatItNotifiesTheRateLimiterWhenItSucceeds
+{
+    [connectionOperation setRateLimiter:rateLimiter];
+    [self givenNetworkRequestsSucceed];
+    
+    [context checking:^(LRExpectationBuilder *builder) {
+        [allowing(rateLimiter) registerWaitingConnectionForRequestOperation:connectionOperation]; andThen(LRA_performBlock(^(NSInvocation *invocation) {
+            [connectionOperation rateLimiterRequestsConnectionStart:rateLimiter];
+        }));
+        
+        [oneOf(rateLimiter) requestOperationConnectionDidFinish:connectionOperation];
+    }];
+    
+    [operationQueue addOperations:@[connectionOperation] waitUntilFinished:YES];
+    
+    assertContextSatisfied(context);
+}
+
+// implemetation calls common -[finish] method.
+//- (void)testThatItNotifiesTheRateLimiterWhenItFails
+//{
+//    
+//}
+//
+//- (void)ThatItNotifiesTheRateLimiterWhenItIsCancelled
+//{
+//    
+//}
+
+#pragma mark - Helpers
+- (void)givenNetworkRequestsSucceed
+{
+    [OHHTTPStubs addRequestHandler:^OHHTTPStubsResponse *(NSURLRequest *request, BOOL onlyCheck) {
+        return [OHHTTPStubsResponse responseWithData:nil statusCode:200 responseTime:0.5 headers:nil];
+    }];
+}
+
 - (void)waitUntilConnectionWillStart
 {
     waitUntil(^BOOL{
         return _connectionWillStartNotificationReceived;
     });
     
-//    NSParameterAssert(_connectionWillStartNotificationReceived);
+    //    NSParameterAssert(_connectionWillStartNotificationReceived);
 }
 
-#pragma mark - Helpers
 typedef BOOL(^WaitUntilBlock)();
 void waitUntilWithTimeout(NSTimeInterval timeoutInterval, WaitUntilBlock block) {
     BOOL timedOut = NO;
@@ -244,5 +258,38 @@ void waitUntil(WaitUntilBlock block) {
 //    STAssertTrue(receivedRequest, nil); // raiss an exception to stop the test, not a failure.
 //    NSParameterAssert(operationWaiting);
 }
+
+- (void)givenNetworkRequestsRespondWithA404
+{
+    [OHHTTPStubs addRequestHandler:^OHHTTPStubsResponse *(NSURLRequest *request, BOOL onlyCheck) {
+        return [OHHTTPStubsResponse responseWithError:[NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:nil]];
+    }];
+}
+
+- (void)startUnderRateLimiterAndWaitUntilFinished
+{
+    [connectionOperation setRateLimiter:rateLimiter];
+    [self givenNetworkRequestsRespondWithA404];
+    
+    [context checking:^(LRExpectationBuilder *builder) {
+        [allowing(rateLimiter) requestOperationConnectionDidFinish:connectionOperation];
+    }];
+    
+    [self startConnectionAndWaitUntilRegisteredAsWaitingWithRateLimiter];
+    [connectionOperation rateLimiterRequestsConnectionStart:rateLimiter];
+    
+    waitUntil(^BOOL{
+        return connectionOperation.isFinished;
+    });
+    STAssertTrue(connectionOperation.isFinished, nil);
+}
+
+- (void)givenNetworkRequestsDoNotComplete
+{
+    [OHHTTPStubs addRequestHandler:^OHHTTPStubsResponse *(NSURLRequest *request, BOOL onlyCheck) {
+        return [OHHTTPStubsResponse responseWithData:nil statusCode:404 responseTime:20.0 headers:nil]; // problem w/ leakage?
+    }];
+}
+
 
 @end

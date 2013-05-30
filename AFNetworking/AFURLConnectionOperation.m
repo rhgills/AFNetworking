@@ -546,6 +546,10 @@ static inline BOOL AFStateTransitionIsValid(AFOperationState fromState, AFOperat
 - (void)finish {
     self.state = AFOperationFinishedState;
     
+    if (self.rateLimiter) {
+        [self.rateLimiter requestOperationConnectionDidFinish:self];
+    }
+    
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:AFNetworkingOperationDidFinishNotification object:self];
     });
