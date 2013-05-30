@@ -192,36 +192,24 @@
 
 - (void)requestOperationConnectionWillStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
 {
-    RHGRateLimiterRequestInfo *qpsInfo = [[RHGRateLimiterRequestInfo alloc] initWithRequestOperation:aRequestOperation];
-    [self insertOrReplaceOldestRequestInfoWithInfo:qpsInfo];
-    self.runningOperations++;
+    [_waitingConnections removeLastObject];
 }
 
 - (void)requestOperationConnectionDidStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
 {
     [self.lock lock];
     
-    [_waitingConnections removeLastObject];
+    RHGRateLimiterRequestInfo *qpsInfo = [[RHGRateLimiterRequestInfo alloc] initWithRequestOperation:aRequestOperation];
+    [self insertOrReplaceOldestRequestInfoWithInfo:qpsInfo];
+    self.runningOperations++;
+    
     
     [self.lock unlock];
 }
 
 - (void)requestOperationConnectionDidDeclineToStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
 {
-        [self.lock lock];
     
-    [_waitingConnections removeLastObject];
-    
-    RHGRateLimiterRequestInfo *info = [self infoForOperation:aRequestOperation];
-    info.requestOperation = nil; // don't care about it anymore, break the retani cycle
-    self.runningOperations--;
-    
-    if ([self atRateLimit]) {
-        // this will change in 1 second.
-        [self.performDelayedSelectorWrapper performSelector:@selector(runWaitingConnectionsUpToRateLimit) withObject:nil afterDelay:1.0 onTarget:self];
-    }
-
-        [self.lock unlock];
 }
 
 - (void)runWaitingConnectionsUpToRateLimit
