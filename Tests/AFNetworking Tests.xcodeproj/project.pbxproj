@@ -31,6 +31,7 @@
 		4B04D13B17565F2D00F39FA3 /* NSURLRequest+RHGExampleRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B04D13717565F2D00F39FA3 /* NSURLRequest+RHGExampleRequest.m */; };
 		4B2B2FF01752678700999CC0 /* AFURLConnectionOperationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B2B2FEE1752678700999CC0 /* AFURLConnectionOperationTests.m */; };
 		4B2B2FF11752678700999CC0 /* RHGRateLimiterTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = 4B2B2FEF1752678700999CC0 /* RHGRateLimiterTestCase.m */; };
+		4BBA620417590672007ACB86 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4BBA620317590672007ACB86 /* CoreGraphics.framework */; };
 		AC11A74923B64A3096ACADFC /* libPods-osx.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 96A923755B00464187DEDBAF /* libPods-osx.a */; };
 		F8C6F282174D2C6200B154D5 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = F8C6F281174D2C6200B154D5 /* Icon.png */; };
 		F8C6F283174D2C6200B154D5 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = F8C6F281174D2C6200B154D5 /* Icon.png */; };
@@ -84,6 +85,7 @@
 		4B04D13717565F2D00F39FA3 /* NSURLRequest+RHGExampleRequest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSURLRequest+RHGExampleRequest.m"; sourceTree = "<group>"; };
 		4B2B2FEE1752678700999CC0 /* AFURLConnectionOperationTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AFURLConnectionOperationTests.m; sourceTree = "<group>"; };
 		4B2B2FEF1752678700999CC0 /* RHGRateLimiterTestCase.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RHGRateLimiterTestCase.m; sourceTree = "<group>"; };
+		4BBA620317590672007ACB86 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		55E73C267F33406A9F92476C /* libPods-ios.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ios.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		96A923755B00464187DEDBAF /* libPods-osx.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-osx.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F8C6F281174D2C6200B154D5 /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Icon.png; path = ../Example/Icon.png; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4BBA620417590672007ACB86 /* CoreGraphics.framework in Frameworks */,
 				25C4EC42173D86B60083E116 /* MobileCoreServices.framework in Frameworks */,
 				25C4EC41173D86AE0083E116 /* SystemConfiguration.framework in Frameworks */,
 				2544EC45173BE382004117E8 /* SenTestingKit.framework in Frameworks */,
@@ -121,6 +124,7 @@
 		2544EC29173BE382004117E8 = {
 			isa = PBXGroup;
 			children = (
+				4BBA620317590672007ACB86 /* CoreGraphics.framework */,
 				25801549173EB4B40026AA6E /* Pods-ios.xcconfig */,
 				2580154A173EB4B40026AA6E /* Pods-osx.xcconfig */,
 				4B04D13317565F2D00F39FA3 /* Helpers */,

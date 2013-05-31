@@ -2,7 +2,9 @@ PODS:
   - AFHTTPRequestOperationLogger (0.10.0):
     - AFNetworking (>= 0.9.0)
   - AFNetworking (1.2.1):
+    - CocoaLumberjack
     - RXCollections
+  - CocoaLumberjack (1.6.2)
   - Expecta (0.2.1)
   - LRMocky (0.9.1x)
   - OCHamcrest (2.0.1)
@@ -27,7 +29,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   AFHTTPRequestOperationLogger: 34ba125cb9eeb77a3b67aaaca105720ba3a0798c
-  AFNetworking: 13e1c525837ee5d111a2d3d23bd9668ea24f01b6
+  AFNetworking: a029d324c8d323ef32dd02197df8c453da78216b
+  CocoaLumberjack: d73e1e317ced14ab930797dda6c17156ff17aaa1
   Expecta: d46fb1bd78c90a83da0158b9b1e108de106e369f
   LRMocky: 6e2d031e27d5490d48404f006cdbc87ec71e2365
   OCHamcrest: 07dc0921b4c4ee7a3137e22d6a41ca236d93d2bf

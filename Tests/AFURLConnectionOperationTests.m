@@ -121,6 +121,9 @@
     [self startConnectionAndWaitUntilRegisteredAsWaitingWithRateLimiter];
     
     
+    [context checking:^(LRExpectationBuilder *builder) {
+        [allowing(rateLimiter) requestOperationConnectionDidFinish:connectionOperation];
+    }];
     [connectionOperation cancel];
     
     

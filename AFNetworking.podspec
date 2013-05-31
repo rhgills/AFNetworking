@@ -16,6 +16,7 @@ Pod::Spec.new do |s|
   s.osx.frameworks = 'CoreServices', 'SystemConfiguration', 'Security'
 
   s.dependency 'RXCollections'
+  s.dependency 'CocoaLumberjack'
 
   s.prefix_header_contents = <<-EOS
 #import <Availability.h>

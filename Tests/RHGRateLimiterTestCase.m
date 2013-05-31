@@ -191,7 +191,7 @@
     [limiter requestOperationConnectionDidFinish:operation];
 }
 
-- (void)whenTimePasses:(NSInteger)delta
+- (void)whenTimePasses:(NSTimeInterval)delta
 {
     [self incrementCurrentTimestampBy:delta];
 }

@@ -10,6 +10,9 @@
 #import "RHGHelperMacros.h"
 #import "AFNetworking.h"
 #import "RXCollection.h"
+#import "DDLog.h"
+
+static int ddLogLevel = LOG_LEVEL_WARN;
 
 @interface RHGRateLimiterRequestInfo : NSObject
 
@@ -19,11 +22,14 @@
 @property id <RHGRateLimitedRequestOperation> requestOperation;
 
 // don't care
-@property NSTimeInterval startTimestamp;
+
 @property BOOL isRunning;
 
 
-
+// debug
+@property NSDate *startDate;
+@property NSSet *lastFourRequestsAtStart;
+@property NSUInteger numberOfRunningConnectionsAtStart;
 
 @end
 
@@ -110,11 +116,16 @@
 {
     __block RHGRateLimiterRequestInfo *oldestInfo = [self.lastFourRequests anyObject];
     [self.lastFourRequests enumerateObjectsUsingBlock:^(RHGRateLimiterRequestInfo *otherInfo, BOOL *stop) {
-        if ([otherInfo.finishDate earlierDate:oldestInfo.finishDate] == otherInfo.finishDate ) {
+        if (otherInfo.finishDate == nil) {
+            // can't possibly be earlier.
+        }else if (oldestInfo.finishDate == nil) {
+            oldestInfo = otherInfo;
+        }else if ([otherInfo.finishDate earlierDate:oldestInfo.finishDate] == otherInfo.finishDate) {
             oldestInfo = otherInfo;
         }
     }];
     
+    NSParameterAssert(oldestInfo.finishDate);
     return oldestInfo;
 }
 
@@ -173,18 +184,56 @@
     [self.lock unlock];
 }
 
+- (BOOL)responseWasOverRateLimit:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+{
+    if (![aRequestOperation isKindOfClass:[AFJSONRequestOperation class]]) {
+        return NO;
+    }
+    
+    AFJSONRequestOperation *jsonOp = (AFJSONRequestOperation *)aRequestOperation;
+    
+    // response string: '{"error":true,"status":{"status_code":403,"message":"Over queries per second limit"}}'.
+    NSString *message = [[jsonOp.responseJSON objectForKey:@"status"] objectForKey:@"message"];
+    return (jsonOp.response.statusCode == 403 && [message isEqualToString:@"Over queries per second limit"]);
+}
+
 - (void)requestOperationConnectionDidFinish:(id<RHGRateLimitedRequestOperation>)aRequestOperation
 {
     [self.lock lock];
+
+    AFHTTPRequestOperation *httpOperation = (id)aRequestOperation;
+    DDLogInfo(@"finished: %@.", [httpOperation request]);
+    
+    NSParameterAssert([self runningOperations] == [self runningOperationsFromLastFourRequestInfo]);
     
     RHGRateLimiterRequestInfo *info = [self infoForOperation:aRequestOperation];
     info.finishDate = [self.currentDateWrapper currentDate];
-    info.requestOperation = nil; // don't care about it anymore, break the retani cycle
+//    info.requestOperation = nil; // don't care about it anymore, break the retani cycle
     self.runningOperations--;
+    
+    NSParameterAssert([self runningOperations] == [self runningOperationsFromLastFourRequestInfo]);
+    
+    if ([self responseWasOverRateLimit:aRequestOperation]) {
+        DDLogWarn(@"Request operation finished with an over rate limit error.");
+        DDLogWarn(@"When started, there were:");
+        DDLogWarn(@"%d running operations.", info.numberOfRunningConnectionsAtStart);
+        DDLogWarn(@"last four requests: %@.", info.lastFourRequestsAtStart);
+        DDLogWarn(@"----------------------------------------------------------");
+    }
     
     if ([self atRateLimit]) {
         // this will change in 1 second.
         [self.performDelayedSelectorWrapper performSelector:@selector(runWaitingConnectionsUpToRateLimit) withObject:nil afterDelay:1.0 onTarget:self];
+    }else{
+        if (_waitingConnections.count) {
+            // the operation that just finished has finished after (or equal to) 1 second has elapsed since the previous finished operation, but before runWaitingConnectionsUpToRateLimit has been called by performDelayedSelector.
+            // this can happen if the run loop is busy, as the delay of 1.0 specified is a minimum, not a guarantee.
+            DDLogInfo(@"%@ called one second after previous finish date, but before the performDelayedSelector call.", THIS_METHOD);
+            DDLogInfo(@"Running waiting connections directly.");
+        }
+    
+        // there may be none, but just run anyway.
+        [self runWaitingConnectionsUpToRateLimit];
     }
     
     [self.lock unlock];
@@ -195,14 +244,41 @@
     [_waitingConnections removeLastObject];
 }
 
+- (NSUInteger)runningOperationsFromLastFourRequestInfo
+{
+    NSArray *runningOperations = [_lastFourRequests rx_filterWithBlock:^BOOL(RHGRateLimiterRequestInfo *each) {
+        return (each.finishDate == nil);
+    }];
+    
+    return [runningOperations count];
+}
+
+- (void)addDebuggingInfo:(RHGRateLimiterRequestInfo *)qpsInfo
+{
+    qpsInfo.numberOfRunningConnectionsAtStart = self.runningOperations;
+    qpsInfo.startDate = [self.currentDateWrapper currentDate];
+    
+    // deep copy
+    NSMutableSet *lastFourAtStart = [NSMutableSet setWithCapacity:_lastFourRequests.count];
+    for (id obj in _lastFourRequests) {
+        [lastFourAtStart addObject:[obj copy]];
+    }
+    qpsInfo.lastFourRequestsAtStart = lastFourAtStart;
+}
+
 - (void)requestOperationConnectionDidStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
 {
     [self.lock lock];
     
     RHGRateLimiterRequestInfo *qpsInfo = [[RHGRateLimiterRequestInfo alloc] initWithRequestOperation:aRequestOperation];
+    [self addDebuggingInfo:qpsInfo];
+    
+    NSParameterAssert([self runningOperations] == [self runningOperationsFromLastFourRequestInfo]);
+    
     [self insertOrReplaceOldestRequestInfoWithInfo:qpsInfo];
     self.runningOperations++;
     
+    NSParameterAssert([self runningOperations] == [self runningOperationsFromLastFourRequestInfo]);
     
     [self.lock unlock];
 }
@@ -216,6 +292,8 @@
 {
     [self.lock lock];
     
+    DDLogVerbose(@"%@ called with %d waiting connections.", THIS_METHOD, _waitingConnections.count);
+    
     id <RHGRateLimitedRequestOperation> aWaitingRequestOperation = nil;
     while (![self atRateLimit] && (aWaitingRequestOperation = [_waitingConnections lastObject]) ) {
         [self runWaitingConnectionForRequestOperation:aWaitingRequestOperation];
@@ -227,6 +305,9 @@
 - (void)runWaitingConnectionForRequestOperation:(id <RHGRateLimitedRequestOperation>)aRequestOperation
 {
     [self.lock lock];
+    
+    AFHTTPRequestOperation *httpOperation = (id)aRequestOperation;
+    DDLogInfo(@"running waiting request for: %@.", [httpOperation request]);
     
     [self requestOperationConnectionWillStart:aRequestOperation];
     BOOL started = [aRequestOperation rateLimiterRequestsConnectionStart:self];
@@ -257,6 +338,27 @@
     return self;
 }
 
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"<%@:%p finishDate: %@>", [self class], self, [self finishDate]];
+}
 
+- (id)copyWithZone:(NSZone *)zone
+{
+    RHGRateLimiterRequestInfo *copy = [[RHGRateLimiterRequestInfo alloc] initWithRequestOperation:self.requestOperation];
+    copy.finishDate = self.finishDate;
+    
+    // deep copy
+//    NSMutableSet *lastFourAtStart = [NSMutableSet setWithCapacity:self.lastFourRequestsAtStart.count];
+//    for (id obj in self.lastFourRequestsAtStart) {
+//        [lastFourAtStart addObject:[obj copy]];
+//    }
+//    copy.lastFourRequestsAtStart = lastFourAtStart;
+    
+    copy.startDate = [self startDate];
+    copy.numberOfRunningConnectionsAtStart = self.numberOfRunningConnectionsAtStart;
+    
+    return copy;
+}
 
 @end
