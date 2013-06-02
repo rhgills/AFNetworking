@@ -9,14 +9,12 @@ Pod::Spec.new do |s|
   s.source_files = 'AFNetworking'
   s.requires_arc = true
 
-  s.ios.deployment_target = '5.0'
+  s.platform = :ios, '5.0'
   s.ios.frameworks = 'MobileCoreServices', 'SystemConfiguration', 'Security'
-
-  s.osx.deployment_target = '10.7'
-  s.osx.frameworks = 'CoreServices', 'SystemConfiguration', 'Security'
 
   s.dependency 'RXCollections'
   s.dependency 'CocoaLumberjack'
+  s.dependency 'RGKit'
 
   s.prefix_header_contents = <<-EOS
 #import <Availability.h>

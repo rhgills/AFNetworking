@@ -3,6 +3,7 @@ PODS:
     - AFNetworking (>= 0.9.0)
   - AFNetworking (1.2.1):
     - CocoaLumberjack
+    - RGKit
     - RXCollections
   - CocoaLumberjack (1.6.2)
   - Expecta (0.2.1)
@@ -10,6 +11,9 @@ PODS:
   - OCHamcrest (2.0.1)
   - OCMock (2.1.1)
   - OHHTTPStubs (1.1.1)
+  - RGKit (0.0.4):
+    - LRMocky (~> 0.9.1x)
+    - OCHamcrest (~> 2.0.0)
   - RXCollections (1.0)
 
 DEPENDENCIES:
@@ -29,13 +33,14 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   AFHTTPRequestOperationLogger: 34ba125cb9eeb77a3b67aaaca105720ba3a0798c
-  AFNetworking: a029d324c8d323ef32dd02197df8c453da78216b
+  AFNetworking: ffeee84ab0cd20733618b63f68987132d58bba09
   CocoaLumberjack: d73e1e317ced14ab930797dda6c17156ff17aaa1
   Expecta: d46fb1bd78c90a83da0158b9b1e108de106e369f
   LRMocky: 6e2d031e27d5490d48404f006cdbc87ec71e2365
   OCHamcrest: 07dc0921b4c4ee7a3137e22d6a41ca236d93d2bf
   OCMock: 79212e5e328378af5cfd6edb5feacfd6c49cd8a3
   OHHTTPStubs: cb1cef742f2fba18b192fb92ede52a69cf3a04d5
+  RGKit: 5f31583b107b9ef5b1d92b98eec042946245637e
   RXCollections: 7df8fcb97b433260a11ce226dd74b50545ff0a0f
 
 COCOAPODS: 0.20.2
