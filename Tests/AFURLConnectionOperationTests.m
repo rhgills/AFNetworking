@@ -46,6 +46,9 @@
 {
     context = mockery();
     
+    // the latest specification is used, so this blanket can and will be overriden by tests.
+    [self givenNetworkRequestsRespondWithA500];
+    
     connectionOperation = [[AFURLConnectionOperation alloc] initWithRequest:[NSURLRequest rhg_exampleRequest]];
     rateLimiter = [context mock:[RHGRateLimiter class]];
     
@@ -266,6 +269,13 @@ void waitUntil(WaitUntilBlock block) {
 {
     [OHHTTPStubs addRequestHandler:^OHHTTPStubsResponse *(NSURLRequest *request, BOOL onlyCheck) {
         return [OHHTTPStubsResponse responseWithError:[NSError errorWithDomain:NSURLErrorDomain code:404 userInfo:nil]];
+    }];
+}
+
+- (void)givenNetworkRequestsRespondWithA500
+{
+    [OHHTTPStubs addRequestHandler:^OHHTTPStubsResponse *(NSURLRequest *request, BOOL onlyCheck) {
+        return [OHHTTPStubsResponse responseWithError:[NSError errorWithDomain:NSURLErrorDomain code:500 userInfo:nil]];
     }];
 }
 
