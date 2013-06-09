@@ -16,10 +16,10 @@ static int ddLogLevel = LOG_LEVEL_WARN;
 
 @interface RHGRateLimiterRequestInfo : NSObject
 
-- (id)initWithRequestOperation:(AFHTTPRequestOperation*)aRequestOperation;
+- (id)initWithRequestOperation:(AFURLConnectionOperation *)aRequestOperation;
 
 @property (nonatomic, strong) NSDate *finishDate;
-@property id <RHGRateLimitedRequestOperation> requestOperation;
+@property AFURLConnectionOperation * requestOperation;
 
 // don't care
 
@@ -37,13 +37,6 @@ static int ddLogLevel = LOG_LEVEL_WARN;
 @interface RHGRateLimiter ()
 
 - (BOOL)atRateLimit;
-
-
-- (void)operationDidStart;
-- (void)operationDidFinish;
-
-- (void)connectionWillStartFromNotification:(NSNotification *)aNotification;
-- (void)operationDidFinishFromNotification:(NSNotification *)aNotification;
 
 @property (nonatomic, strong, readonly) id <RHGCurrentDateWrapper> currentDateWrapper;
 @property (nonatomic, strong, readonly) RHGPerformDelayedSelectorWrapper *performDelayedSelectorWrapper;
@@ -171,7 +164,7 @@ static int ddLogLevel = LOG_LEVEL_WARN;
     return 4;
 }
 
-- (void)registerWaitingConnectionForRequestOperation:(id<RHGRateLimitedRequestOperation>)aRequestOperation
+- (void)registerWaitingConnectionForRequestOperation:(AFURLConnectionOperation *)aRequestOperation
 {
     [self.lock lock];
     
@@ -184,7 +177,7 @@ static int ddLogLevel = LOG_LEVEL_WARN;
     [self.lock unlock];
 }
 
-- (BOOL)responseWasOverRateLimit:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+- (BOOL)responseWasOverRateLimit:(AFURLConnectionOperation *)aRequestOperation
 {
     if (![aRequestOperation isKindOfClass:[AFJSONRequestOperation class]]) {
         return NO;
@@ -197,12 +190,11 @@ static int ddLogLevel = LOG_LEVEL_WARN;
     return (jsonOp.response.statusCode == 403 && [message isEqualToString:@"Over queries per second limit"]);
 }
 
-- (void)requestOperationConnectionDidFinish:(id<RHGRateLimitedRequestOperation>)aRequestOperation
+- (void)requestOperationConnectionDidFinish:(AFURLConnectionOperation *)aRequestOperation
 {
     [self.lock lock];
 
-    AFHTTPRequestOperation *httpOperation = (id)aRequestOperation;
-    DDLogInfo(@"finished: %@.", [httpOperation request]);
+    DDLogInfo(@"finished: %@.", [aRequestOperation request]);
     
     NSParameterAssert([self runningOperations] == [self runningOperationsFromLastFourRequestInfo]);
     
@@ -239,14 +231,14 @@ static int ddLogLevel = LOG_LEVEL_WARN;
     [self.lock unlock];
 }
 
-- (void)requestOperationConnectionWillStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+- (void)requestOperationConnectionWillStart:(AFURLConnectionOperation *)aRequestOperation
 {
     [_waitingConnections removeLastObject];
 }
 
 - (NSUInteger)runningOperationsFromLastFourRequestInfo
 {
-    NSArray *runningOperations = [_lastFourRequests rx_filterWithBlock:^BOOL(RHGRateLimiterRequestInfo *each) {
+    NSSet *runningOperations = [_lastFourRequests rx_filterWithBlock:^BOOL(RHGRateLimiterRequestInfo *each) {
         return (each.finishDate == nil);
     }];
     
@@ -266,7 +258,7 @@ static int ddLogLevel = LOG_LEVEL_WARN;
     qpsInfo.lastFourRequestsAtStart = lastFourAtStart;
 }
 
-- (void)requestOperationConnectionDidStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+- (void)requestOperationConnectionDidStart:(AFURLConnectionOperation *)aRequestOperation
 {
     [self.lock lock];
     
@@ -283,7 +275,7 @@ static int ddLogLevel = LOG_LEVEL_WARN;
     [self.lock unlock];
 }
 
-- (void)requestOperationConnectionDidDeclineToStart:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+- (void)requestOperationConnectionDidDeclineToStart:(AFURLConnectionOperation *)aRequestOperation
 {
     
 }
@@ -294,7 +286,7 @@ static int ddLogLevel = LOG_LEVEL_WARN;
     
     DDLogVerbose(@"%@ called with %d waiting connections.", THIS_METHOD, _waitingConnections.count);
     
-    id <RHGRateLimitedRequestOperation> aWaitingRequestOperation = nil;
+    AFURLConnectionOperation * aWaitingRequestOperation = nil;
     while (![self atRateLimit] && (aWaitingRequestOperation = [_waitingConnections lastObject]) ) {
         [self runWaitingConnectionForRequestOperation:aWaitingRequestOperation];
     }
@@ -302,11 +294,11 @@ static int ddLogLevel = LOG_LEVEL_WARN;
     [self.lock unlock];
 }
 
-- (void)runWaitingConnectionForRequestOperation:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+- (void)runWaitingConnectionForRequestOperation:(AFURLConnectionOperation *)aRequestOperation
 {
     [self.lock lock];
     
-    AFHTTPRequestOperation *httpOperation = (id)aRequestOperation;
+    AFURLConnectionOperation *httpOperation = (id)aRequestOperation;
     DDLogInfo(@"running waiting request for: %@.", [httpOperation request]);
     
     [self requestOperationConnectionWillStart:aRequestOperation];
@@ -328,7 +320,7 @@ static int ddLogLevel = LOG_LEVEL_WARN;
 
 @implementation RHGRateLimiterRequestInfo
 
-- (id)initWithRequestOperation:(id <RHGRateLimitedRequestOperation>)aRequestOperation
+- (id)initWithRequestOperation:(AFURLConnectionOperation *)aRequestOperation
 {
     self = [super init];
     if (self) {

@@ -10,6 +10,7 @@
 #import "RHGCurrentDateWrapper.h"
 #import "RHGPerformDelayedSelectorWrapper.h"
 
+@class AFURLConnectionOperation;
 @class RHGRateLimiter;
 
 
@@ -38,8 +39,8 @@
 - (instancetype)initWithCurrentDateWrapper:(id <RHGCurrentDateWrapper>)aCurrentDateWrapper performDelayedSelectorWrapper:(RHGPerformDelayedSelectorWrapper *)aPerformDelayedSelectorWrapper;
 - (NSUInteger)rateLimit;
 
-- (void)registerWaitingConnectionForRequestOperation:(id <RHGRateLimitedRequestOperation>)aRequestOperation;
-- (void)requestOperationConnectionDidFinish:(id <RHGRateLimitedRequestOperation>)aRequestOperation;
+- (void)registerWaitingConnectionForRequestOperation:(AFURLConnectionOperation *)aRequestOperation;
+- (void)requestOperationConnectionDidFinish:(AFURLConnectionOperation *)aRequestOperation;
 
 // exposed to tests because LRMocky doesn't handle SEL params very well.
 - (void)runWaitingConnectionsUpToRateLimit;
