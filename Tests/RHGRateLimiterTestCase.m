@@ -37,7 +37,7 @@
     id performDelayedSelectorWrapper;
     
     // collaborators
-    id <RHGRateLimitedRequestOperation> rateLimitedRequestOperation;
+    id rateLimitedRequestOperation;
     
     // helpers
     NSMutableArray *_otherRunningRequestOperations;
@@ -53,7 +53,7 @@
     limiter = [[RHGRateLimiter alloc] initWithCurrentDateWrapper:currentDateWrapper
                                    performDelayedSelectorWrapper:performDelayedSelectorWrapper];
     
-    rateLimitedRequestOperation = [context protocolMock:@protocol(RHGRateLimitedRequestOperation)];
+    rateLimitedRequestOperation = [context mock:[AFURLConnectionOperation class]];
     
     [self setCurrentTimestampSince1970To:0.0];
 }

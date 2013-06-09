@@ -1,21 +1,21 @@
 xcodeproj 'AFNetworking Tests'
 workspace '../AFNetworking'
-inhibit_all_warnings!
+# inhibit_all_warnings!
 
-def import_pods
+platform :ios, '5.0'
+
+target 'iOS Tests' do
+    pod 'AFNetworking', :path => '../'
+  # podspec :path => '../AFNetworking.podspec'
+
   pod 'OCMock', '~> 2.1.1'
   pod 'Expecta', '~> 0.2.1'
   pod 'AFHTTPRequestOperationLogger', '~> 0.10.0'
-  pod 'AFNetworking', :path => '../'
-  pod 'LRMocky', :path => '/Users/rhgill/Code/vendor/LRMocky'
+  pod 'LRMocky', :git => 'https://github.com/rhgills/LRMocky/', :branch => 'v0.9.x'
   # :git => 'https://github.com/rhgills/LRMocky/', :branch => 'v0.9.x'
+  # :path => '/Users/rhgill/Code/LRMocky'
   pod 'OCHamcrest'
   pod 'OHHTTPStubs'
 end
 
-target :ios do
-  platform :ios, '5.0'
-  link_with 'iOS Tests'
-  import_pods
-end
 

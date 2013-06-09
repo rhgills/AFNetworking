@@ -8,7 +8,7 @@
 
 #import <SenTestingKit/SenTestingKit.h>
 
-#import <AFURLConnectionOperation.h>
+#import "AFURLConnectionOperation.h"
 
 #define LRMOCKY_SUGAR
 #define LRMOCKY_SHORTHAND

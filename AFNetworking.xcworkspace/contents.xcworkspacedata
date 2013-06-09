@@ -67,21 +67,6 @@
       <FileRef
          location = "group:RHGRateLimiter.m">
       </FileRef>
-      <FileRef
-         location = "group:RHGPerformDelayedSelectorWrapper.h">
-      </FileRef>
-      <FileRef
-         location = "group:RHGPerformDelayedSelectorWrapper.m">
-      </FileRef>
-      <FileRef
-         location = "group:RHGCurrentDateWrapper.h">
-      </FileRef>
-      <FileRef
-         location = "group:RHGHelperMacros.h">
-      </FileRef>
-      <FileRef
-         location = "group:RHGHelperMacros.m">
-      </FileRef>
    </Group>
    <FileRef
       location = "group:Tests/AFNetworking Tests.xcodeproj">
