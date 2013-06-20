@@ -80,16 +80,38 @@ static char kAFImageRequestOperationObjectKey;
 #pragma mark -
 
 - (void)setImageWithURL:(NSURL *)url {
-    [self setImageWithURL:url placeholderImage:nil];
+    [self setImageWithURL:url placeholderImage:nil animated:NO];
+}
+
+- (void)setImageWithURL:(NSURL *)url animated:(BOOL)animated {
+    [self setImageWithURL:url placeholderImage:nil animated:animated];
 }
 
 - (void)setImageWithURL:(NSURL *)url
        placeholderImage:(UIImage *)placeholderImage
 {
+    return [self setImageWithURL:url placeholderImage:placeholderImage animated:NO];
+}
+
+- (void)setImageWithURL:(NSURL *)url
+       placeholderImage:(UIImage *)placeholderImage
+               animated:(BOOL)animated {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
     [request addValue:@"image/*" forHTTPHeaderField:@"Accept"];
-
-    [self setImageWithURLRequest:request placeholderImage:placeholderImage success:nil failure:nil];
+    
+    if (animated) {
+        [self setImageWithURLRequest:request placeholderImage:placeholderImage success:^(NSURLRequest *request, NSHTTPURLResponse *response, UIImage *image) {
+            
+            [UIView transitionWithView:self
+                              duration:.2
+                               options:UIViewAnimationOptionTransitionCrossDissolve
+                            animations:^{
+                                self.image = image;
+                            } completion:nil];
+        } failure:nil];
+    }else{
+        [self setImageWithURLRequest:request placeholderImage:placeholderImage success:nil failure:nil];
+    }
 }
 
 - (void)setImageWithURLRequest:(NSURLRequest *)urlRequest
