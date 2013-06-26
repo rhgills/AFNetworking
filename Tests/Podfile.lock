@@ -1,7 +1,7 @@
 PODS:
   - AFHTTPRequestOperationLogger (0.10.0):
     - AFNetworking (>= 0.9.0)
-  - AFNetworking (1.2.2):
+  - AFNetworking (1.2.3):
     - CocoaLumberjack
     - RGKit
     - RXCollections
@@ -12,6 +12,7 @@ PODS:
   - OCMock (2.1.1)
   - OHHTTPStubs (1.1.2)
   - RGKit (0.0.5):
+    - CocoaLumberjack (~> 1.6.0)
     - LRMocky (~> 0.9.1x)
     - OCHamcrest (~> 2.0.0)
   - RXCollections (1.0)
@@ -24,6 +25,7 @@ DEPENDENCIES:
   - OCHamcrest
   - OCMock (~> 2.1.1)
   - OHHTTPStubs
+  - RGKit (from `/Users/rhgill/Code/rgkit-stable`)
 
 EXTERNAL SOURCES:
   AFNetworking:
@@ -31,17 +33,19 @@ EXTERNAL SOURCES:
   LRMocky:
     :branch: v0.9.x
     :git: https://github.com/rhgills/LRMocky/
+  RGKit:
+    :path: /Users/rhgill/Code/rgkit-stable
 
 SPEC CHECKSUMS:
   AFHTTPRequestOperationLogger: 34ba125cb9eeb77a3b67aaaca105720ba3a0798c
-  AFNetworking: fc2745e7a4350e72a31ab983423d41666c2bad56
+  AFNetworking: f9cb9371764138482b2ed1aef0216b4301ff0666
   CocoaLumberjack: d73e1e317ced14ab930797dda6c17156ff17aaa1
   Expecta: d46fb1bd78c90a83da0158b9b1e108de106e369f
   LRMocky: 6a8c3731e475500c29eeca47cb5d257a371a9428
   OCHamcrest: 07dc0921b4c4ee7a3137e22d6a41ca236d93d2bf
   OCMock: 79212e5e328378af5cfd6edb5feacfd6c49cd8a3
   OHHTTPStubs: a840cb0fe0c2a4271018be540782cc97139dff53
-  RGKit: a34cba0bb9e8676147afdab88da9b5dba9fc9110
+  RGKit: 05ab6d0ea952450a76aab14b7db0a6d8e36a1411
   RXCollections: 7df8fcb97b433260a11ce226dd74b50545ff0a0f
 
 COCOAPODS: 0.20.2
