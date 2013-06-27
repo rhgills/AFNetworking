@@ -7,7 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "RGKit/Time/RHGCurrentDateWrapper.h"
+#import <RGKit/Time/Clock/Current Date Wrapper/RHGCurrentDateWrapper.h>
 #import <RHGPerformDelayedSelectorWrapper.h>
 
 @class AFURLConnectionOperation;
