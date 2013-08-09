@@ -7,7 +7,7 @@ platform :ios, '5.0'
 target 'iOS Tests' do
   pod 'RGKit'
 
-  pod 'AFNetworking', :path => '../'
+  pod 'AFNetworking-rhgills', :path => '../'
   # podspec :path => '../AFNetworking.podspec'
 
   pod 'OCMock', '~> 2.1.1'
