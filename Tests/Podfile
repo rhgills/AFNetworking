@@ -5,9 +5,9 @@ workspace '../AFNetworking'
 platform :ios, '5.0'
 
 target 'iOS Tests' do
-pod 'RGKit', :path => '/Users/rhgill/Code/rgkit-stable'
+  pod 'RGKit'
 
-    pod 'AFNetworking', :path => '../'
+  pod 'AFNetworking', :path => '../'
   # podspec :path => '../AFNetworking.podspec'
 
   pod 'OCMock', '~> 2.1.1'
