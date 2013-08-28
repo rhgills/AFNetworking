@@ -12,7 +12,7 @@ target 'iOS Tests' do
 
   pod 'OCMock', '~> 2.1.1'
   pod 'Expecta', '~> 0.2.1'
-  pod 'AFHTTPRequestOperationLogger', '~> 0.10.0' # this is incompatible with my version 1.2.3 of AFNetworking, in the ../ podspec
+  pod 'AFHTTPRequestOperationLogger-rhgills', '~> 1.0.1' # this is incompatible with my version 1.2.3 of AFNetworking, in the ../ podspec
 
   pod 'LRMocky', :git => 'https://github.com/rhgills/LRMocky/', :branch => 'v0.9.x'
   # :git => 'https://github.com/rhgills/LRMocky/', :branch => 'v0.9.x'
