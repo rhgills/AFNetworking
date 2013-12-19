@@ -7,8 +7,8 @@
 //
 
 #import <Foundation/Foundation.h>
-#import <RGKit/RHGCurrentDateWrapper.h>
-#import <RGKit/RHGPerformDelayedSelectorWrapper.h>
+#import <RHGKit/RHGCurrentDateWrapper.h>
+#import <RHGKit/RHGPerformDelayedSelectorWrapper.h>
 
 @class AFURLConnectionOperation;
 @class RHGRateLimiter;

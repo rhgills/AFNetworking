@@ -5,7 +5,7 @@ workspace '../AFNetworking'
 platform :ios, '5.0'
 
 target 'iOS Tests' do
-  pod 'RGKit'
+  pod 'RHGKit'
 
   pod 'AFNetworking-rhgills', :path => '../'
   # podspec :path => '../AFNetworking.podspec'
