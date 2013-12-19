@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
 
   s.dependency 'RXCollections'
   s.dependency 'CocoaLumberjack'
-  s.dependency 'RGKit'
+  s.dependency 'RHGKit'
 
   s.prefix_header_contents = <<-EOS
 #import <Availability.h>
